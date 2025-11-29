@@ -185,6 +185,7 @@ async function createTables(connection) {
         total_amount DECIMAL(10,2) NOT NULL,
         status ENUM('pending_approval', 'approved', 'rejected', 'payment_pending', 'payment_completed', 'payment_failed', 'preparing', 'ready', 'fulfilled', 'cancelled') DEFAULT 'pending_approval',
         token_number INT NULL,
+        order_number INT NULL,
         estimated_pickup_time TIMESTAMP NULL,
         actual_pickup_time TIMESTAMP NULL,
         payment_status ENUM('pending', 'completed', 'failed', 'refunded') DEFAULT 'pending',
@@ -200,6 +201,18 @@ async function createTables(connection) {
         FOREIGN KEY (shop_id) REFERENCES shops(id) ON DELETE CASCADE
       )
     `);
+    
+    // Add order_number column if it doesn't exist
+    try {
+      await connection.execute(`
+        ALTER TABLE orders ADD COLUMN order_number INT NULL
+      `);
+      console.log("✅ Added order_number column to orders table");
+    } catch (err) {
+      if (!err.message.includes("Duplicate column name")) {
+        console.log("ℹ️ Could not add order_number column:", err.message);
+      }
+    }
     
     // Add payment_screenshot column if it doesn't exist, or modify if it exists but is wrong type
     try {
@@ -1085,6 +1098,10 @@ app.get('/api/analytics/:shopId', async (req, res) => {
 
 app.post("/api/orders", async (req, res) => {
   try {
+    console.log("📝 Order creation request received:", {
+      body: { ...req.body, items: req.body.items ? `[${req.body.items.length} items]` : null }
+    });
+
     const {
       user_id,
       shop_id,
@@ -1096,37 +1113,132 @@ app.post("/api/orders", async (req, res) => {
       estimated_pickup_time,
       notes
     } = req.body;
+
+    // Validate required fields
+    if (!user_id || !shop_id || !items || items.length === 0) {
+      const missing = [];
+      if (!user_id) missing.push('user_id');
+      if (!shop_id) missing.push('shop_id');
+      if (!items || items.length === 0) missing.push('items');
+      
+      console.error("❌ Missing required fields:", missing);
+      return res.status(400).json({ 
+        success: false, 
+        error: `Missing required fields: ${missing.join(', ')}` 
+      });
+    }
+
+    // Validate shop exists
+    const [shops] = await pool.execute("SELECT id FROM shops WHERE id = ?", [shop_id]);
+    if (shops.length === 0) {
+      console.error("❌ Shop not found:", shop_id);
+      return res.status(400).json({ 
+        success: false, 
+        error: "Shop not found" 
+      });
+    }
+
+    // Validate user exists
+    const [users] = await pool.execute("SELECT id FROM users WHERE id = ?", [user_id]);
+    if (users.length === 0) {
+      console.error("❌ User not found:", user_id);
+      return res.status(400).json({ 
+        success: false, 
+        error: "User not found" 
+      });
+    }
+
     const id = `order_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+    console.log("🆔 Generated order ID:", id);
 
     // Get the current max order_number for this shop
-    const [rows] = await pool.execute(
-      "SELECT MAX(order_number) as maxOrder FROM orders WHERE shop_id = ?",
-      [shop_id]
-    );
-    const nextOrderNumber = (rows[0].maxOrder || 0) + 1;
+    let nextOrderNumber = 1;
+    try {
+      const [rows] = await pool.execute(
+        "SELECT MAX(order_number) as maxOrder FROM orders WHERE shop_id = ?",
+        [shop_id]
+      );
+      nextOrderNumber = (rows[0]?.maxOrder || 0) + 1;
+      console.log("🔢 Next order number for shop:", nextOrderNumber);
+    } catch (err) {
+      console.warn("⚠️ Could not get max order_number, using 1:", err.message);
+      // If order_number column doesn't exist yet, it will be added by migration
+      // Continue with order_number = 1
+    }
+
+    const insertValues = [
+      id,
+      user_id,
+      shop_id,
+      JSON.stringify(items),
+      total_amount ?? 0,
+      status ?? 'pending_approval',
+      payment_status ?? 'pending',
+      token_number ?? null,
+      estimated_pickup_time ?? null,
+      notes ?? null,
+      nextOrderNumber
+    ];
+
+    console.log("💾 Inserting order with values:", {
+      id,
+      user_id,
+      shop_id,
+      itemsCount: items.length,
+      total_amount,
+      order_number: nextOrderNumber
+    });
 
     await pool.execute(
       `INSERT INTO orders (id, user_id, shop_id, items, total_amount, status, payment_status, token_number, estimated_pickup_time, notes, order_number)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
-      [
-        id,
-        user_id ?? null,
-        shop_id ?? null,
-        JSON.stringify(items ?? []),
-        total_amount ?? 0,
-        status ?? 'pending_approval',
-        payment_status ?? 'pending',
-        token_number ?? null,
-        estimated_pickup_time ?? null,
-        notes ?? null,
-        nextOrderNumber
-      ]
+      insertValues
     );
+
+    console.log("✅ Order inserted successfully");
+
     const [orders] = await pool.execute("SELECT * FROM orders WHERE id = ?", [id]);
+    
+    if (orders.length === 0) {
+      console.error("❌ Order created but not found after insertion");
+      return res.status(500).json({ 
+        success: false, 
+        error: "Order created but could not be retrieved" 
+      });
+    }
+
+    console.log("✅ Order retrieved successfully:", orders[0].id);
     res.json({ success: true, data: orders[0] });
   } catch (error) {
-    console.error("Create order error:", error);
-    res.status(400).json({ success: false, error: error.message });
+    console.error("❌ Create order error:", error);
+    console.error("Error details:", {
+      code: error.code,
+      errno: error.errno,
+      sqlState: error.sqlState,
+      sqlMessage: error.sqlMessage,
+      message: error.message
+    });
+    
+    // Provide more specific error messages
+    let errorMessage = error.message || "Unknown error occurred";
+    
+    if (error.code === 'ER_NO_REFERENCED_ROW_2') {
+      errorMessage = "Invalid user_id or shop_id: User or shop does not exist";
+    } else if (error.code === 'ER_BAD_FIELD_ERROR') {
+      errorMessage = `Invalid field in request: ${error.sqlMessage || error.message}`;
+    } else if (error.code === 'ER_TRUNCATED_WRONG_VALUE_FOR_FIELD') {
+      errorMessage = `Invalid value for field: ${error.sqlMessage || error.message}`;
+    }
+    
+    res.status(400).json({ 
+      success: false, 
+      error: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? {
+        code: error.code,
+        sqlState: error.sqlState,
+        sqlMessage: error.sqlMessage
+      } : undefined
+    });
   }
 });
 
