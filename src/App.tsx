@@ -91,7 +91,7 @@ const AppContent = () => {
         <Route path="/user/orders" element={<UserOrders />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/settings" element={<Settings />} />
-        {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+        {/* Catch-all route - must be last */}
         <Route path="*" element={<NotFound />} />
       </Routes>
     </>

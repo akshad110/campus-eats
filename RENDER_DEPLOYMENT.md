@@ -324,6 +324,30 @@ After both services are deployed:
    - Navigate to `/home` (should work)
    - Refresh the page (should still work, not show "Not Found")
 
+### Issue 8: Build Error - "Missing parameter name" (path-to-regexp)
+
+**Error:** `TypeError: Missing parameter name at 1` during build on Render
+
+**Solution:**
+1. **Check Node.js version:**
+   - Ensure `package.json` has `"engines": { "node": ">=18.0.0" }`
+   - The `.nvmrc` file (with content `18`) helps Render use the correct Node version
+   - Render should use Node 18+ automatically, but specifying it helps
+
+2. **Clear build cache:**
+   - Go to Render Dashboard → Your Frontend Service → Settings
+   - Click "Clear build cache"
+   - Redeploy
+
+3. **Verify route definitions:**
+   - All routes should have valid paths
+   - Catch-all route should be `path="*"` (not `path="/*"`)
+   - Parameter routes should be `/:paramName` (e.g., `/:shopId`)
+
+4. **If issue persists:**
+   - Try updating `react-router-dom` to latest version: `npm install react-router-dom@latest`
+   - Check Render build logs for more specific error details
+
 ---
 
 ## 🔐 Security Best Practices

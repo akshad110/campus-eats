@@ -44,6 +44,8 @@ services:
     env: static
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
+    # Note: For SPA routing, configure redirects in Render Dashboard:
+    # Settings → Redirects/Rewrites → Add: /* → /index.html (200)
     envVars:
       - key: VITE_API_BASE_URL
         sync: false
