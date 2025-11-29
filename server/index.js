@@ -215,14 +215,47 @@ async function createTables(connection) {
     }
     
     // Modify payment_status to allow NULL (for approved orders before payment)
+    // This is critical: ENUM columns need explicit NULL permission
     try {
-      await connection.execute(`
-        ALTER TABLE orders MODIFY COLUMN payment_status ENUM('pending', 'completed', 'failed', 'refunded') NULL DEFAULT NULL
+      // Check current column definition first
+      const [columnInfo] = await connection.execute(`
+        SELECT COLUMN_TYPE, IS_NULLABLE 
+        FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE() 
+        AND TABLE_NAME = 'orders' 
+        AND COLUMN_NAME = 'payment_status'
       `);
-      console.log("✅ Modified payment_status column to allow NULL");
+      
+      if (columnInfo.length > 0) {
+        const isNullable = columnInfo[0].IS_NULLABLE === 'YES';
+        const currentType = columnInfo[0].COLUMN_TYPE;
+        
+        console.log(`📊 payment_status column: ${currentType}, NULL allowed: ${isNullable}`);
+        
+        // Only modify if NULL is not allowed
+        if (!isNullable) {
+          await connection.execute(`
+            ALTER TABLE orders MODIFY COLUMN payment_status ENUM('pending', 'completed', 'failed', 'refunded') NULL
+          `);
+          console.log("✅ Modified payment_status column to allow NULL");
+        } else {
+          console.log("✅ payment_status already allows NULL");
+        }
+      } else {
+        console.log("⚠️ payment_status column not found - will be created with NULL support");
+      }
     } catch (err) {
-      if (!err.message.includes("Duplicate column name") && !err.message.includes("same as current")) {
-        console.log("ℹ️ Could not modify payment_status column:", err.message);
+      console.log("⚠️ Could not check/modify payment_status column:", err.message);
+      // Continue - try to modify anyway
+      try {
+        await connection.execute(`
+          ALTER TABLE orders MODIFY COLUMN payment_status ENUM('pending', 'completed', 'failed', 'refunded') NULL
+        `);
+        console.log("✅ Modified payment_status column to allow NULL (retry succeeded)");
+      } catch (retryErr) {
+        if (!retryErr.message.includes("same as current")) {
+          console.log("⚠️ Retry also failed:", retryErr.message);
+        }
       }
     }
     
@@ -1326,12 +1359,17 @@ app.put("/api/orders/:id/status", async (req, res) => {
     // null means reset payment status (for approved orders before payment)
     // This allows Pay Now button to show (payment_status is null, not 'pending')
     if (payment_status !== undefined) { 
-      updateFields.push("payment_status = ?"); 
-      // Convert null/undefined to NULL for SQL, or use the provided value
+      // For NULL values, we need to use a different SQL syntax
+      if (payment_status === null) {
+        updateFields.push("payment_status = NULL");
+        // Don't add to params for NULL
+      } else {
+        updateFields.push("payment_status = ?");
+        params.push(payment_status);
+      }
       // NULL means payment not started yet (show Pay Now button)
       // 'pending' means payment screenshot uploaded (waiting for approval)
       // 'completed' means payment approved
-      params.push(payment_status === null || payment_status === undefined ? null : payment_status); 
     }
 
     // Handle estimated_pickup_time - can be provided directly or calculated from preparation_time
@@ -1395,13 +1433,30 @@ app.put("/api/orders/:id/status", async (req, res) => {
 
     params.push(id);
     
-    console.log("💾 Updating order with SQL:", `UPDATE orders SET ${updateFields.join(", ")}, updated_at = NOW() WHERE id = ?`);
-    console.log("📊 Parameters:", params.map((p, i) => `${updateFields[i] || 'id'}: ${typeof p === 'string' && p.length > 50 ? p.substring(0, 50) + '...' : p}`));
+    // Build the SQL query
+    const sqlQuery = `UPDATE orders SET ${updateFields.join(", ")}, updated_at = NOW() WHERE id = ?`;
+    
+    console.log("💾 Updating order with SQL:", sqlQuery);
+    console.log("📊 Parameters count:", params.length);
+    console.log("📊 Parameters:", params.map((p, i) => {
+      if (p === null) return `[${i}]: NULL`;
+      if (typeof p === 'string' && p.length > 50) return `[${i}]: ${p.substring(0, 50)}...`;
+      return `[${i}]: ${p}`;
+    }));
 
-    await pool.execute(
-      `UPDATE orders SET ${updateFields.join(", ")}, updated_at = NOW() WHERE id = ?`,
-      params
-    );
+    try {
+      await pool.execute(sqlQuery, params);
+    } catch (sqlError) {
+      console.error("❌ SQL Execution Error:", {
+        code: sqlError.code,
+        errno: sqlError.errno,
+        sqlState: sqlError.sqlState,
+        sqlMessage: sqlError.sqlMessage,
+        sql: sqlQuery,
+        params: params
+      });
+      throw sqlError;
+    }
 
     console.log("✅ Order updated successfully");
 
@@ -1428,16 +1483,20 @@ app.put("/api/orders/:id/status", async (req, res) => {
       errorMessage = `Invalid field in request: ${error.sqlMessage || error.message}`;
     } else if (error.code === 'ER_NO_SUCH_TABLE') {
       errorMessage = "Database table not found";
+    } else if (error.code === 'ER_TRUNCATED_WRONG_VALUE_FOR_FIELD' || error.sqlMessage?.includes('ENUM')) {
+      errorMessage = `Invalid ENUM value: ${error.sqlMessage || error.message}. The payment_status column may not allow NULL. Please check database migration.`;
     }
     
+    // Always include error details for debugging
     res.status(400).json({ 
       success: false, 
       error: errorMessage,
-      details: process.env.NODE_ENV === 'development' ? {
+      details: {
         code: error.code,
         sqlState: error.sqlState,
-        sqlMessage: error.sqlMessage
-      } : undefined
+        sqlMessage: error.sqlMessage,
+        sqlQuery: sqlQuery || 'N/A'
+      }
     });
   }
 });
