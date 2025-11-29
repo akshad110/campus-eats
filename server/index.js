@@ -1614,25 +1614,14 @@ app.get('/api/orders/:orderId/ratings/count', async (req, res) => {
   }
 });
 
-// Catch-all route for SPA routing - must be after all API routes
-// This serves index.html for all non-API routes, allowing client-side routing to work
-app.get('*', (req, res, next) => {
-  // Skip API routes
-  if (req.path.startsWith('/api')) {
-    return next();
-  }
-  
-  // For non-API routes, this is handled by the frontend service on Render
-  // If frontend is served separately, this won't be reached
-  // But if backend serves frontend, we'd serve index.html here
-  res.json({
-    success: true,
-    message: "CampusEats API is running",
-    note: "Frontend routes should be handled by the frontend service. If you see this, the frontend service may not be configured correctly.",
-    path: req.path,
-    timestamp: new Date().toISOString(),
-  });
-});
+// Serve static files from dist (if frontend is built and served from backend)
+// Uncomment the following lines if you want to serve frontend from backend:
+// app.use(express.static('dist'));
+// app.get(/^(?!\/api).*/, (req, res) => {
+//   res.sendFile(path.resolve(__dirname, '../dist', 'index.html'));
+// });
+
+// Note: On Render, frontend is served separately, so this catch-all is not needed
 
 startServer();
 
