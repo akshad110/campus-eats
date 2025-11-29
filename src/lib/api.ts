@@ -829,7 +829,8 @@ class ApiService {
       items: typeof dbOrder.items === 'string' ? JSON.parse(dbOrder.items) : dbOrder.items,
       totalAmount: Number(dbOrder.total_amount),
       status: dbOrder.status,
-      paymentStatus: dbOrder.payment_status,
+      // Handle payment_status: null/undefined means not paid yet (show Pay Now), 'pending' means waiting for approval, 'completed' means paid
+      paymentStatus: dbOrder.payment_status || (dbOrder.status === 'approved' ? null : 'pending'),
       tokenNumber: dbOrder.token_number,
       orderNumber: dbOrder.order_number,
       estimatedPickupTime: dbOrder.estimated_pickup_time,

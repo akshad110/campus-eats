@@ -755,43 +755,65 @@ const AdminDashboard = () => {
                           <Button 
                             size="sm" 
                             onClick={async () => {
-                              // Approve payment
-                              const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
-                              await fetch(`${API_URL}/orders/${order.id}/status`, {
-                                method: 'PUT',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ payment_status: 'completed' }),
-                              });
-                              
-                              // Get preparation time from order or default to 15
-                              const prepTime = (order as any).preparation_time || 15;
-                              
-                              // Update order status to preparing
-                              await handleSetStatus(order.id, 'preparing');
-                              
-                              // Create notification for user
-                              const notifId = `notif_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-                              await fetch(`${API_URL}/notifications`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                  id: notifId,
-                                  user_id: order.userId,
-                                  title: 'Payment Successful',
-                                  message: `Your payment has been approved! Your order will be prepared in ${prepTime} minutes.`,
-                                  type: 'order_update',
-                                  metadata: JSON.stringify({ order_id: order.id, status: 'payment_approved', preparation_time: prepTime }),
-                                }),
-                              });
-                              
-                              // Emit socket event
-                              if (socket) {
-                                socket.emit('order_status_update', {
-                                  orderId: order.id,
-                                  status: 'preparing',
-                                  userId: order.userId,
-                                  order: { ...order, payment_status: 'completed', status: 'preparing' },
+                              try {
+                                setProcessingOrderId(order.id);
+                                // Approve payment and update status
+                                const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+                                
+                                // Get preparation time from order or default to 15
+                                const prepTime = (order as any).preparation_time || 15;
+                                
+                                // Update payment status to completed and status to preparing in one call
+                                const response = await fetch(`${API_URL}/orders/${order.id}/status`, {
+                                  method: 'PUT',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ 
+                                    payment_status: 'completed',
+                                    status: 'preparing',
+                                    preparation_time: prepTime
+                                  }),
                                 });
+                                
+                                if (!response.ok) {
+                                  const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                                  throw new Error(errorData.error || 'Failed to approve payment');
+                                }
+                              
+                                // Create notification for user
+                                const notifId = `notif_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+                                await fetch(`${API_URL}/notifications`, {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    id: notifId,
+                                    user_id: order.userId,
+                                    title: 'Payment Successful',
+                                    message: `Your payment has been approved! Your order will be prepared in ${prepTime} minutes.`,
+                                    type: 'order_update',
+                                    metadata: JSON.stringify({ order_id: order.id, status: 'payment_approved', preparation_time: prepTime }),
+                                  }),
+                                });
+                                
+                                // Emit socket event
+                                if (socket) {
+                                  socket.emit('order_status_update', {
+                                    orderId: order.id,
+                                    status: 'preparing',
+                                    userId: order.userId,
+                                    order: { ...order, payment_status: 'completed', status: 'preparing' },
+                                  });
+                                }
+                                
+                                // Refresh orders by reloading
+                                loadUserShops();
+                                
+                                // Show success message
+                                alert(`Payment approved! Order is now being prepared. Estimated time: ${prepTime} minutes.`);
+                              } catch (error: any) {
+                                console.error('Error approving payment:', error);
+                                alert(`Error: ${error.message || 'Failed to approve payment. Please try again.'}`);
+                              } finally {
+                                setProcessingOrderId(null);
                               }
                             }}
                             className="bg-green-600 hover:bg-green-700"

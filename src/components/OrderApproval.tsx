@@ -115,11 +115,13 @@ export const OrderApproval = ({
         ? new Date(Date.now() + approvalTime * 60000).toISOString()
         : undefined;
 
+      // When approving, set payment_status to null (not 'pending') so Pay Now button shows
+      // payment_status will be set to 'pending' when user uploads payment screenshot
       await ApiService.updateOrderStatus(
         orderId,
         approved ? "approved" : "rejected",
         approved ? undefined : finalReason,
-        undefined,
+        approved ? null : undefined, // Set payment_status to null for approved orders (not 'pending')
         undefined,
         approved ? approvalTime : undefined
       );

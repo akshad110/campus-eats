@@ -338,20 +338,26 @@ export const ActiveOrders = ({ socket }: { socket: Socket | null }) => {
                         {/* Show Pay Now button or waiting message */}
                         {order.status === 'approved' && order.paymentStatus !== 'completed' && (
                           <div className="mt-4">
+                            {/* Show waiting message if payment screenshot exists and payment is pending */}
                             {order.paymentStatus === 'pending' && (order as any).payment_screenshot ? (
                               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                                 <p className="text-sm text-yellow-800 font-semibold">
-                                  Waiting for shopkeeper to approve your payment
+                                  ⏳ Waiting for shopkeeper to approve your payment
                                 </p>
                               </div>
-                            ) : order.paymentStatus !== 'pending' ? (
+                            ) : (
+                              /* Show Pay Now button if payment is not pending and not completed */
+                              /* This handles: null, undefined, or any other status */
                               <button
-                                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-semibold shadow"
+                                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-semibold shadow transition-colors"
                                 onClick={async () => {
                                   // Fetch shop UPI ID
                                   try {
                                     const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
                                     const shopResponse = await fetch(`${API_URL}/shops/${order.shopId}`);
+                                    if (!shopResponse.ok) {
+                                      throw new Error('Failed to fetch shop details');
+                                    }
                                     const shopData = await shopResponse.json();
                                     if (shopData.success && shopData.data.upi_id) {
                                       setShopUpiId(shopData.data.upi_id);
@@ -366,9 +372,9 @@ export const ActiveOrders = ({ socket }: { socket: Socket | null }) => {
                                   }
                                 }}
                               >
-                                Pay Now
+                                💳 Pay Now
                               </button>
-                            ) : null}
+                            )}
                           </div>
                         )}
                       </div>

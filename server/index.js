@@ -1309,9 +1309,15 @@ app.put("/api/orders/:id/status", async (req, res) => {
     }
 
     // Handle payment_status update
+    // null means reset payment status (for approved orders before payment)
+    // This allows Pay Now button to show (payment_status is null, not 'pending')
     if (payment_status !== undefined) { 
       updateFields.push("payment_status = ?"); 
-      params.push(payment_status); 
+      // Convert null/undefined to NULL for SQL, or use the provided value
+      // NULL means payment not started yet (show Pay Now button)
+      // 'pending' means payment screenshot uploaded (waiting for approval)
+      // 'completed' means payment approved
+      params.push(payment_status === null || payment_status === undefined ? null : payment_status); 
     }
 
     // Handle estimated_pickup_time - can be provided directly or calculated from preparation_time
