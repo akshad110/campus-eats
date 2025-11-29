@@ -36,12 +36,27 @@ const dbConfig = {
   queueLimit: 0,
 };
 
-// Add SSL configuration for cloud MySQL providers (PlanetScale, etc.)
-if (process.env.DB_SSL === 'true' || process.env.DB_HOST?.includes('psdb.cloud') || process.env.DB_HOST?.includes('planetscale')) {
+// Add SSL configuration for cloud MySQL providers
+// Aiven requires SSL, Railway usually doesn't
+const requiresSSL = process.env.DB_SSL === 'true' || 
+                    process.env.DB_HOST?.includes('aivencloud.com') || 
+                    process.env.DB_HOST?.includes('psdb.cloud') || 
+                    process.env.DB_HOST?.includes('planetscale');
+
+if (requiresSSL) {
   dbConfig.ssl = {
     rejectUnauthorized: false
   };
+  console.log("🔒 SSL enabled for database connection");
 }
+
+// Log connection details (without password)
+console.log("🔗 Database Configuration:");
+console.log(`   Host: ${dbConfig.host}`);
+console.log(`   Port: ${dbConfig.port}`);
+console.log(`   Database: ${dbConfig.database}`);
+console.log(`   User: ${dbConfig.user}`);
+console.log(`   SSL: ${requiresSSL ? 'Enabled' : 'Disabled'}`);
 
 const pool = mysql.createPool(dbConfig);
 
@@ -233,17 +248,55 @@ async function createTables(connection) {
 
 async function initializeDatabase() {
   try {
+    console.log("🔄 Attempting to connect to database...");
+    
+    // Test connection first
     const connection = await pool.getConnection();
-    await connection.execute("CREATE DATABASE IF NOT EXISTS campuseats");
-    await connection.changeUser({ database: "campuseats" });
+    console.log("✅ Database connection established");
+    
+    // For Aiven and other cloud providers, database already exists
+    // Only create if it doesn't exist (for local development)
+    if (process.env.DB_HOST === "localhost" || !process.env.DB_HOST?.includes('aivencloud.com')) {
+      try {
+        await connection.execute("CREATE DATABASE IF NOT EXISTS campuseats");
+        await connection.changeUser({ database: "campuseats" });
+      } catch (dbError) {
+        // Database might already exist or we might not have CREATE permission
+        console.log("ℹ️  Using existing database or no CREATE permission");
+        if (dbConfig.database) {
+          await connection.changeUser({ database: dbConfig.database });
+        }
+      }
+    } else {
+      // For cloud providers, use the database from config
+      if (dbConfig.database) {
+        await connection.changeUser({ database: dbConfig.database });
+      }
+    }
+    
     await createTables(connection);
     connection.release();
     console.log("🗄️ Database initialized successfully");
     return true;
   } catch (error) {
     console.error("❌ Database initialization failed:", error);
+    console.error("   Error code:", error.code);
+    console.error("   Error message:", error.message);
+    
+    // Provide helpful error messages
+    if (error.code === 'ENOTFOUND') {
+      console.error("   ⚠️  DNS lookup failed - check DB_HOST is correct");
+      console.error("   ⚠️  Ensure database service is running and accessible");
+    } else if (error.code === 'ECONNREFUSED') {
+      console.error("   ⚠️  Connection refused - check DB_HOST and DB_PORT");
+    } else if (error.code === 'ER_ACCESS_DENIED_ERROR') {
+      console.error("   ⚠️  Access denied - check DB_USER and DB_PASSWORD");
+    } else if (error.code === 'ER_BAD_DB_ERROR') {
+      console.error("   ⚠️  Database doesn't exist - check DB_NAME");
+    }
+    
     console.log(
-      "⚠️ Server will continue without MySQL - API calls will return errors",
+      "⚠️  Server will continue without MySQL - API calls will return errors",
     );
     return false;
   }
