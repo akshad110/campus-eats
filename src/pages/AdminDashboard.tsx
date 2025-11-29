@@ -757,27 +757,21 @@ const AdminDashboard = () => {
                             onClick={async () => {
                               try {
                                 setProcessingOrderId(order.id);
-                                // Approve payment and update status
+                                // Approve payment and update status using ApiService
                                 const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
                                 
                                 // Get preparation time from order or default to 15
                                 const prepTime = (order as any).preparation_time || 15;
                                 
-                                // Update payment status to completed and status to preparing in one call
-                                const response = await fetch(`${API_URL}/orders/${order.id}/status`, {
-                                  method: 'PUT',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ 
-                                    payment_status: 'completed',
-                                    status: 'preparing',
-                                    preparation_time: prepTime
-                                  }),
-                                });
-                                
-                                if (!response.ok) {
-                                  const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-                                  throw new Error(errorData.error || 'Failed to approve payment');
-                                }
+                                // Update payment status to completed and status to preparing using ApiService
+                                await ApiService.updateOrderStatus(
+                                  order.id,
+                                  'preparing', // status
+                                  undefined, // rejection_reason
+                                  'completed', // payment_status
+                                  undefined, // transaction_id
+                                  prepTime // preparation_time
+                                );
                               
                                 // Create notification for user
                                 const notifId = `notif_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;

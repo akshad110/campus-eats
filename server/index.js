@@ -217,45 +217,41 @@ async function createTables(connection) {
     // Modify payment_status to allow NULL (for approved orders before payment)
     // This is critical: ENUM columns need explicit NULL permission
     try {
-      // Check current column definition first
-      const [columnInfo] = await connection.execute(`
-        SELECT COLUMN_TYPE, IS_NULLABLE 
-        FROM INFORMATION_SCHEMA.COLUMNS 
-        WHERE TABLE_SCHEMA = DATABASE() 
-        AND TABLE_NAME = 'orders' 
-        AND COLUMN_NAME = 'payment_status'
+      // Always try to modify the column to allow NULL
+      // This will work even if the column already allows NULL (MySQL will just say "same as current")
+      await connection.execute(`
+        ALTER TABLE orders MODIFY COLUMN payment_status ENUM('pending', 'completed', 'failed', 'refunded') NULL DEFAULT NULL
       `);
-      
-      if (columnInfo.length > 0) {
-        const isNullable = columnInfo[0].IS_NULLABLE === 'YES';
-        const currentType = columnInfo[0].COLUMN_TYPE;
-        
-        console.log(`📊 payment_status column: ${currentType}, NULL allowed: ${isNullable}`);
-        
-        // Only modify if NULL is not allowed
-        if (!isNullable) {
-          await connection.execute(`
-            ALTER TABLE orders MODIFY COLUMN payment_status ENUM('pending', 'completed', 'failed', 'refunded') NULL
-          `);
-          console.log("✅ Modified payment_status column to allow NULL");
-        } else {
-          console.log("✅ payment_status already allows NULL");
-        }
-      } else {
-        console.log("⚠️ payment_status column not found - will be created with NULL support");
-      }
+      console.log("✅ Modified payment_status column to allow NULL");
     } catch (err) {
-      console.log("⚠️ Could not check/modify payment_status column:", err.message);
-      // Continue - try to modify anyway
-      try {
-        await connection.execute(`
-          ALTER TABLE orders MODIFY COLUMN payment_status ENUM('pending', 'completed', 'failed', 'refunded') NULL
-        `);
-        console.log("✅ Modified payment_status column to allow NULL (retry succeeded)");
-      } catch (retryErr) {
-        if (!retryErr.message.includes("same as current")) {
-          console.log("⚠️ Retry also failed:", retryErr.message);
+      // Check if error is because column already has the correct definition
+      if (err.message.includes("same as current") || err.message.includes("Duplicate")) {
+        console.log("✅ payment_status column already allows NULL");
+      } else {
+        // Try to check current state and provide helpful message
+        try {
+          const [columnInfo] = await connection.execute(`
+            SELECT COLUMN_TYPE, IS_NULLABLE 
+            FROM INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_SCHEMA = DATABASE() 
+            AND TABLE_NAME = 'orders' 
+            AND COLUMN_NAME = 'payment_status'
+          `);
+          
+          if (columnInfo.length > 0) {
+            const isNullable = columnInfo[0].IS_NULLABLE === 'YES';
+            const currentType = columnInfo[0].COLUMN_TYPE;
+            console.log(`📊 payment_status column: ${currentType}, NULL allowed: ${isNullable}`);
+            
+            if (!isNullable) {
+              console.error("❌ CRITICAL: payment_status column does NOT allow NULL. Manual database fix required!");
+              console.error("   Run this SQL manually: ALTER TABLE orders MODIFY COLUMN payment_status ENUM('pending', 'completed', 'failed', 'refunded') NULL DEFAULT NULL;");
+            }
+          }
+        } catch (checkErr) {
+          console.log("⚠️ Could not check payment_status column state:", checkErr.message);
         }
+        console.log("⚠️ Could not modify payment_status column:", err.message);
       }
     }
     
@@ -1359,13 +1355,18 @@ app.put("/api/orders/:id/status", async (req, res) => {
     // null means reset payment status (for approved orders before payment)
     // This allows Pay Now button to show (payment_status is null, not 'pending')
     if (payment_status !== undefined) { 
-      // For NULL values, we need to use a different SQL syntax
       if (payment_status === null) {
+        // For NULL values, we MUST use SQL NULL directly (not as parameter)
+        // MySQL ENUM columns don't accept NULL via parameters even if column allows NULL
+        // This is a MySQL limitation - we must use literal NULL in SQL
         updateFields.push("payment_status = NULL");
-        // Don't add to params for NULL
+        // Don't add to params array for NULL - this is critical!
+        console.log("🔧 Setting payment_status to NULL (using SQL literal)");
       } else {
+        // For actual enum values, use parameterized query
         updateFields.push("payment_status = ?");
         params.push(payment_status);
+        console.log(`🔧 Setting payment_status to: ${payment_status}`);
       }
       // NULL means payment not started yet (show Pay Now button)
       // 'pending' means payment screenshot uploaded (waiting for approval)
