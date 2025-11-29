@@ -1376,10 +1376,25 @@ app.put("/api/orders/:id/status", async (req, res) => {
     // Handle estimated_pickup_time - can be provided directly or calculated from preparation_time
     if (estimated_pickup_time !== undefined) {
       updateFields.push("estimated_pickup_time = ?");
-      params.push(estimated_pickup_time ?? null);
+      // Convert ISO 8601 format to MySQL DATETIME format (YYYY-MM-DD HH:mm:ss)
+      let mysqlDateTime = estimated_pickup_time;
+      if (estimated_pickup_time && typeof estimated_pickup_time === 'string') {
+        try {
+          const date = new Date(estimated_pickup_time);
+          if (!isNaN(date.getTime())) {
+            // Format as MySQL DATETIME: YYYY-MM-DD HH:mm:ss
+            mysqlDateTime = date.toISOString().slice(0, 19).replace('T', ' ');
+          }
+        } catch (e) {
+          console.warn("⚠️ Could not parse estimated_pickup_time:", e);
+        }
+      }
+      params.push(mysqlDateTime ?? null);
     } else if (preparation_time !== undefined && preparation_time !== null) {
       // Convert preparation_time (minutes) to estimated_pickup_time (timestamp)
-      const pickupTime = new Date(Date.now() + preparation_time * 60000).toISOString();
+      const pickupDate = new Date(Date.now() + preparation_time * 60000);
+      // Format as MySQL DATETIME: YYYY-MM-DD HH:mm:ss (no milliseconds, no timezone)
+      const pickupTime = pickupDate.toISOString().slice(0, 19).replace('T', ' ');
       updateFields.push("estimated_pickup_time = ?");
       params.push(pickupTime);
       console.log(`⏰ Calculated pickup time: ${pickupTime} from ${preparation_time} minutes`);
@@ -1484,8 +1499,14 @@ app.put("/api/orders/:id/status", async (req, res) => {
       errorMessage = `Invalid field in request: ${error.sqlMessage || error.message}`;
     } else if (error.code === 'ER_NO_SUCH_TABLE') {
       errorMessage = "Database table not found";
-    } else if (error.code === 'ER_TRUNCATED_WRONG_VALUE_FOR_FIELD' || error.sqlMessage?.includes('ENUM')) {
-      errorMessage = `Invalid ENUM value: ${error.sqlMessage || error.message}. The payment_status column may not allow NULL. Please check database migration.`;
+    } else if (error.code === 'ER_TRUNCATED_WRONG_VALUE_FOR_FIELD') {
+      if (error.sqlMessage?.includes('datetime') || error.sqlMessage?.includes('estimated_pickup_time')) {
+        errorMessage = `Invalid datetime format: ${error.sqlMessage || error.message}. Please ensure datetime values are in MySQL format (YYYY-MM-DD HH:mm:ss).`;
+      } else if (error.sqlMessage?.includes('ENUM')) {
+        errorMessage = `Invalid ENUM value: ${error.sqlMessage || error.message}. The payment_status column may not allow NULL. Please check database migration.`;
+      } else {
+        errorMessage = `Invalid value format: ${error.sqlMessage || error.message}`;
+      }
     }
     
     // Always include error details for debugging
@@ -1496,7 +1517,7 @@ app.put("/api/orders/:id/status", async (req, res) => {
         code: error.code,
         sqlState: error.sqlState,
         sqlMessage: error.sqlMessage,
-        sqlQuery: sqlQuery || 'N/A'
+        sqlQuery: (typeof sqlQuery !== 'undefined' ? sqlQuery : 'N/A')
       }
     });
   }
