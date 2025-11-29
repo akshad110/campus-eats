@@ -1287,51 +1287,138 @@ app.put("/api/orders/:id/status", async (req, res) => {
   try {
     const { id } = req.params;
     const { status, payment_status, estimated_pickup_time, rejection_reason, transaction_id, preparation_time, payment_screenshot } = req.body;
+    
+    console.log("📝 Order status update request:", {
+      orderId: id,
+      status,
+      payment_status,
+      preparation_time,
+      hasEstimatedPickupTime: !!estimated_pickup_time,
+      hasRejectionReason: !!rejection_reason,
+      hasPaymentScreenshot: !!payment_screenshot
+    });
+
     let updateFields = [];
     let params = [];
-    // DEBUG LOG: Print incoming payload
-    console.log('[DEBUG] /api/orders/:id/status payload:', req.body);
     let tokenNumberToSet = null;
-    if (status !== undefined) { updateFields.push("status = ?"); params.push(status); }
-    if (payment_status !== undefined) { updateFields.push("payment_status = ?"); params.push(payment_status); }
-    if (estimated_pickup_time !== undefined) { updateFields.push("estimated_pickup_time = ?"); params.push(estimated_pickup_time ?? null); }
-    if (rejection_reason !== undefined) { updateFields.push("rejection_reason = ?"); params.push(rejection_reason ?? null); }
-    if (transaction_id !== undefined) { updateFields.push("transaction_id = ?"); params.push(transaction_id ?? null); }
-    if (preparation_time !== undefined) { updateFields.push("preparation_time = ?"); params.push(preparation_time ?? null); }
-    if (payment_screenshot !== undefined) { updateFields.push("payment_screenshot = ?"); params.push(payment_screenshot ?? null); }
+
+    // Handle status update
+    if (status !== undefined) { 
+      updateFields.push("status = ?"); 
+      params.push(status); 
+    }
+
+    // Handle payment_status update
+    if (payment_status !== undefined) { 
+      updateFields.push("payment_status = ?"); 
+      params.push(payment_status); 
+    }
+
+    // Handle estimated_pickup_time - can be provided directly or calculated from preparation_time
+    if (estimated_pickup_time !== undefined) {
+      updateFields.push("estimated_pickup_time = ?");
+      params.push(estimated_pickup_time ?? null);
+    } else if (preparation_time !== undefined && preparation_time !== null) {
+      // Convert preparation_time (minutes) to estimated_pickup_time (timestamp)
+      const pickupTime = new Date(Date.now() + preparation_time * 60000).toISOString();
+      updateFields.push("estimated_pickup_time = ?");
+      params.push(pickupTime);
+      console.log(`⏰ Calculated pickup time: ${pickupTime} from ${preparation_time} minutes`);
+    }
+
+    // Handle rejection_reason
+    if (rejection_reason !== undefined) { 
+      updateFields.push("rejection_reason = ?"); 
+      params.push(rejection_reason ?? null); 
+    }
+
+    // Handle payment_screenshot
+    if (payment_screenshot !== undefined) { 
+      updateFields.push("payment_screenshot = ?"); 
+      params.push(payment_screenshot ?? null); 
+    }
+
+    // Note: transaction_id and preparation_time columns don't exist in orders table
+    // preparation_time is converted to estimated_pickup_time above
+    // transaction_id is ignored (not stored in orders table)
 
     // If moving to 'preparing', assign next token_number if not already set
     if (status === 'preparing') {
-      // Get the order to check if token_number is already set
-      const [orders] = await pool.execute("SELECT * FROM orders WHERE id = ?", [id]);
-      const order = orders[0];
-      if (!order.token_number) {
-        // Get current max token_number for this shop for today
-        const [rows] = await pool.execute(
-          "SELECT MAX(token_number) as maxToken FROM orders WHERE shop_id = ? AND DATE(created_at) = CURDATE()",
-          [order.shop_id]
-        );
-        tokenNumberToSet = (rows[0].maxToken || 0) + 1;
-        updateFields.push("token_number = ?");
-        params.push(tokenNumberToSet);
+      try {
+        // Get the order to check if token_number is already set
+        const [orders] = await pool.execute("SELECT * FROM orders WHERE id = ?", [id]);
+        if (orders.length === 0) {
+          return res.status(404).json({ success: false, error: "Order not found" });
+        }
+        const order = orders[0];
+        if (!order.token_number) {
+          // Get current max token_number for this shop for today
+          const [rows] = await pool.execute(
+            "SELECT MAX(token_number) as maxToken FROM orders WHERE shop_id = ? AND DATE(created_at) = CURDATE()",
+            [order.shop_id]
+          );
+          tokenNumberToSet = (rows[0]?.maxToken || 0) + 1;
+          updateFields.push("token_number = ?");
+          params.push(tokenNumberToSet);
+          console.log(`🎫 Assigned token number: ${tokenNumberToSet}`);
+        }
+      } catch (err) {
+        console.warn("⚠️ Could not assign token number:", err.message);
+        // Continue without token number assignment
       }
     }
 
     if (updateFields.length === 0) {
+      console.error("❌ No fields to update");
       return res.status(400).json({ success: false, error: "No fields to update" });
     }
+
     params.push(id);
-    // DEBUG LOG: Print SQL update
-    console.log('[DEBUG] SQL:', `UPDATE orders SET ${updateFields.join(", ")}, updated_at = NOW() WHERE id = ?`, params);
+    
+    console.log("💾 Updating order with SQL:", `UPDATE orders SET ${updateFields.join(", ")}, updated_at = NOW() WHERE id = ?`);
+    console.log("📊 Parameters:", params.map((p, i) => `${updateFields[i] || 'id'}: ${typeof p === 'string' && p.length > 50 ? p.substring(0, 50) + '...' : p}`));
+
     await pool.execute(
       `UPDATE orders SET ${updateFields.join(", ")}, updated_at = NOW() WHERE id = ?`,
       params
     );
+
+    console.log("✅ Order updated successfully");
+
     const [orders] = await pool.execute("SELECT * FROM orders WHERE id = ?", [id]);
+    if (orders.length === 0) {
+      return res.status(404).json({ success: false, error: "Order not found after update" });
+    }
+
     res.json({ success: true, data: orders[0] });
   } catch (error) {
-    console.error("Update order status error:", error);
-    res.status(400).json({ success: false, error: error.message });
+    console.error("❌ Update order status error:", error);
+    console.error("Error details:", {
+      code: error.code,
+      errno: error.errno,
+      sqlState: error.sqlState,
+      sqlMessage: error.sqlMessage,
+      message: error.message
+    });
+    
+    // Provide more specific error messages
+    let errorMessage = error.message || "Unknown error occurred";
+    
+    if (error.code === 'ER_BAD_FIELD_ERROR') {
+      errorMessage = `Invalid field in request: ${error.sqlMessage || error.message}`;
+    } else if (error.code === 'ER_NO_SUCH_TABLE') {
+      errorMessage = "Database table not found";
+    }
+    
+    res.status(400).json({ 
+      success: false, 
+      error: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? {
+        code: error.code,
+        sqlState: error.sqlState,
+        sqlMessage: error.sqlMessage
+      } : undefined
+    });
   }
 });
 
