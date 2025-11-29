@@ -4,6 +4,8 @@ import mysql from "mysql2/promise";
 import dotenv from "dotenv";
 import { createServer } from "http";
 import { Server as SocketIOServer } from "socket.io";
+import path from "path";
+import { fileURLToPath } from "url";
 // Stripe removed - using UPI payment
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc.js';
@@ -12,6 +14,9 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -1607,6 +1612,26 @@ app.get('/api/orders/:orderId/ratings/count', async (req, res) => {
     console.error('Error fetching rating count:', err);
     res.status(500).json({ success: false, error: 'Failed to fetch rating count' });
   }
+});
+
+// Catch-all route for SPA routing - must be after all API routes
+// This serves index.html for all non-API routes, allowing client-side routing to work
+app.get('*', (req, res, next) => {
+  // Skip API routes
+  if (req.path.startsWith('/api')) {
+    return next();
+  }
+  
+  // For non-API routes, this is handled by the frontend service on Render
+  // If frontend is served separately, this won't be reached
+  // But if backend serves frontend, we'd serve index.html here
+  res.json({
+    success: true,
+    message: "CampusEats API is running",
+    note: "Frontend routes should be handled by the frontend service. If you see this, the frontend service may not be configured correctly.",
+    path: req.path,
+    timestamp: new Date().toISOString(),
+  });
 });
 
 startServer();

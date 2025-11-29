@@ -187,6 +187,8 @@ The current code in `server/index.js` automatically detects if SSL is needed bas
    Build Command: npm install && npm run build
    Publish Directory: dist
    ```
+   
+   **Important:** The `_redirects` file in the `public` folder will be automatically copied to `dist` during build. This file ensures that refreshing routes like `/home` works correctly by serving `index.html` for all routes.
 
 4. **Add Environment Variables:**
    ```
@@ -296,6 +298,31 @@ After both services are deployed:
 - Verify all environment variables are set
 - Check if database connection is successful
 - Ensure PORT is set correctly (Render auto-assigns, but we use 3001)
+
+### Issue 7: "Not Found" When Refreshing Routes (e.g., /home)
+
+**Error:** Getting "Not Found" page when refreshing routes like `/home` or any client-side route
+
+**Solution:**
+1. **Check `_redirects` file exists:**
+   - File should be at: `public/_redirects`
+   - Content should be: `/*    /index.html   200`
+   - This file is automatically copied to `dist/_redirects` during build
+
+2. **If `_redirects` file doesn't work, manually configure in Render:**
+   - Go to Render Dashboard → Your Frontend Service → Settings
+   - Scroll down to "Redirects/Rewrites" section
+   - Click "Add Redirect"
+   - Configure:
+     - **From:** `/*`
+     - **To:** `/index.html`
+     - **Status:** `200`
+   - Click "Save" and redeploy
+
+3. **Verify after redeploy:**
+   - Visit your frontend URL
+   - Navigate to `/home` (should work)
+   - Refresh the page (should still work, not show "Not Found")
 
 ---
 
