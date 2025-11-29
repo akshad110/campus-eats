@@ -522,18 +522,20 @@ class ApiService {
     id: string,
     status?: string,
     rejection_reason?: string,
-    payment_status?: string,
+    payment_status?: string | null,
     transaction_id?: string,
     preparationTime?: number,
   ): Promise<Order | null> {
     try {
-      const payload: { [key: string]: string | number | undefined } = {
-        status,
-        rejection_reason,
-        payment_status,
-        transaction_id,
-        preparation_time: preparationTime,
-      };
+      // Build payload, only including defined values (null is allowed for payment_status)
+      const payload: { [key: string]: string | number | null | undefined } = {};
+      if (status !== undefined) payload.status = status;
+      if (rejection_reason !== undefined) payload.rejection_reason = rejection_reason;
+      if (payment_status !== undefined) payload.payment_status = payment_status; // null is allowed
+      if (transaction_id !== undefined) payload.transaction_id = transaction_id;
+      if (preparationTime !== undefined) payload.preparation_time = preparationTime;
+      
+      console.log("📤 Sending order status update:", { orderId: id, payload });
       
       const response = await fetch(`${API_BASE_URL}/orders/${id}/status`, {
         method: "PUT",

@@ -188,7 +188,7 @@ async function createTables(connection) {
         order_number INT NULL,
         estimated_pickup_time TIMESTAMP NULL,
         actual_pickup_time TIMESTAMP NULL,
-        payment_status ENUM('pending', 'completed', 'failed', 'refunded') DEFAULT 'pending',
+        payment_status ENUM('pending', 'completed', 'failed', 'refunded') NULL DEFAULT NULL,
         payment_method ENUM('cash', 'card', 'digital_wallet', 'upi') NULL,
         payment_screenshot LONGTEXT NULL,
         notes TEXT,
@@ -211,6 +211,18 @@ async function createTables(connection) {
     } catch (err) {
       if (!err.message.includes("Duplicate column name")) {
         console.log("ℹ️ Could not add order_number column:", err.message);
+      }
+    }
+    
+    // Modify payment_status to allow NULL (for approved orders before payment)
+    try {
+      await connection.execute(`
+        ALTER TABLE orders MODIFY COLUMN payment_status ENUM('pending', 'completed', 'failed', 'refunded') NULL DEFAULT NULL
+      `);
+      console.log("✅ Modified payment_status column to allow NULL");
+    } catch (err) {
+      if (!err.message.includes("Duplicate column name") && !err.message.includes("same as current")) {
+        console.log("ℹ️ Could not modify payment_status column:", err.message);
       }
     }
     
@@ -1291,11 +1303,13 @@ app.put("/api/orders/:id/status", async (req, res) => {
     console.log("📝 Order status update request:", {
       orderId: id,
       status,
-      payment_status,
+      payment_status: payment_status === null ? 'NULL' : payment_status,
+      payment_status_type: typeof payment_status,
       preparation_time,
       hasEstimatedPickupTime: !!estimated_pickup_time,
       hasRejectionReason: !!rejection_reason,
-      hasPaymentScreenshot: !!payment_screenshot
+      hasPaymentScreenshot: !!payment_screenshot,
+      fullBody: req.body
     });
 
     let updateFields = [];
