@@ -1,0 +1,54 @@
+services:
+  # MySQL Database
+  - type: pgsql
+    name: campuseats-db
+    plan: starter
+    databaseName: campuseats
+    user: campuseats_user
+
+  # Backend API Server
+  - type: web
+    name: campuseats-backend
+    env: node
+    plan: starter
+    buildCommand: npm install
+    startCommand: npm run server
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: DB_HOST
+        fromDatabase:
+          name: campuseats-db
+          property: host
+      - key: DB_USER
+        fromDatabase:
+          name: campuseats-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: campuseats-db
+          property: password
+      - key: DB_NAME
+        fromDatabase:
+          name: campuseats-db
+          property: database
+      - key: FRONTEND_URL
+        sync: false
+        # Set this to your frontend URL after deployment
+
+  # Frontend Web Service
+  - type: web
+    name: campuseats-frontend
+    env: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        sync: false
+        # Set this to your backend URL after deployment (e.g., https://campuseats-backend.onrender.com/api)
+      - key: VITE_SOCKET_URL
+        sync: false
+        # Set this to your backend URL after deployment (e.g., https://campuseats-backend.onrender.com)
+

@@ -1,0 +1,26 @@
+{
+  "name": "campuseats-server",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "CampusEats Backend API Server",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "cors": "^2.8.5",
+    "mysql2": "^3.14.1",
+    "dotenv": "^16.5.0",
+    "socket.io": "^4.8.1",
+    "dayjs": "^1.11.13"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
+
