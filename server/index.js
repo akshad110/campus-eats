@@ -108,6 +108,7 @@ async function createTables(connection) {
         phone VARCHAR(20),
         upi_id VARCHAR(255),
         payment_screenshot LONGTEXT,
+        closed BOOLEAN DEFAULT FALSE,
         crowd_level ENUM('low', 'medium', 'high') DEFAULT 'low',
         estimated_wait_time INT DEFAULT 10,
         rating DECIMAL(3,2) DEFAULT 4.0,
@@ -118,6 +119,18 @@ async function createTables(connection) {
         FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
       )
     `);
+    
+    // Add closed column if it doesn't exist
+    try {
+      await connection.execute(`
+        ALTER TABLE shops ADD COLUMN closed BOOLEAN DEFAULT FALSE
+      `);
+      console.log("✅ Added closed column to shops table");
+    } catch (err) {
+      if (!err.message.includes("Duplicate column name")) {
+        console.log("ℹ️ Could not add closed column:", err.message);
+      }
+    }
     
     // Add payment_screenshot column if it doesn't exist, or modify if it exists but is wrong type
     try {
@@ -456,24 +469,86 @@ app.post("/api/shops", async (req, res) => {
   try {
     const { name, description, category, location, phone, image, ownerId, upiId, closed } = req.body;
 
+    // Validate required fields
+    if (!name || !category || !ownerId) {
+      return res.status(400).json({ 
+        success: false, 
+        error: "Missing required fields: name, category, and ownerId are required" 
+      });
+    }
+
+    // Validate category is valid enum value
+    const validCategories = ['food', 'beverages', 'snacks', 'desserts', 'other'];
+    if (category && !validCategories.includes(category.toLowerCase())) {
+      return res.status(400).json({ 
+        success: false, 
+        error: `Invalid category. Must be one of: ${validCategories.join(', ')}` 
+      });
+    }
+
+    // Verify owner exists
+    const [users] = await pool.execute("SELECT id FROM users WHERE id = ?", [ownerId]);
+    if (users.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: "Invalid ownerId: User not found" 
+      });
+    }
+
     const id = `shop_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+
+    // Convert closed to MySQL boolean (0 or 1)
+    const closedValue = closed === true ? 1 : 0;
 
     await pool.execute(
       `
       INSERT INTO shops (id, name, description, category, location, phone, image, owner_id, upi_id, closed)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
-      [id, name, description, category, location, phone, image, ownerId, upiId || null, closed === true]
+      [
+        id, 
+        name, 
+        description || null, 
+        category, 
+        location || null, 
+        phone || null, 
+        image || null, 
+        ownerId, 
+        upiId || null, 
+        closedValue
+      ]
     );
 
-    const [shops] = await pool.execute("SELECT * FROM shops WHERE id = ?", [
-      id,
-    ]);
+    const [shops] = await pool.execute("SELECT * FROM shops WHERE id = ?", [id]);
+
+    if (shops.length === 0) {
+      return res.status(500).json({ 
+        success: false, 
+        error: "Shop created but could not be retrieved" 
+      });
+    }
 
     res.json({ success: true, data: shops[0] });
   } catch (error) {
     console.error("Create shop error:", error);
-    res.status(400).json({ success: false, error: error.message });
+    console.error("Error details:", {
+      code: error.code,
+      errno: error.errno,
+      sqlState: error.sqlState,
+      sqlMessage: error.sqlMessage
+    });
+    
+    // Provide more specific error messages
+    let errorMessage = error.message;
+    if (error.code === 'ER_NO_REFERENCED_ROW_2') {
+      errorMessage = "Invalid ownerId: User does not exist";
+    } else if (error.code === 'ER_DUP_ENTRY') {
+      errorMessage = "Shop with this name already exists";
+    } else if (error.code === 'ER_BAD_FIELD_ERROR') {
+      errorMessage = "Invalid field in request";
+    }
+    
+    res.status(400).json({ success: false, error: errorMessage });
   }
 });
 
