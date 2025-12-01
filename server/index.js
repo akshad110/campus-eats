@@ -10,6 +10,9 @@ import { fileURLToPath } from "url";
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc.js';
 import timezone from 'dayjs/plugin/timezone.js';
+import multer from "multer";
+import { v2 as cloudinary } from "cloudinary";
+import streamifier from "streamifier";
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
@@ -27,7 +30,32 @@ app.use(cors({
   origin: process.env.FRONTEND_URL || "*",
   credentials: true
 }));
-app.use(express.json());
+app.use(express.json({ limit: '50mb' })); // Increased limit for image uploads
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Cloudinary Configuration
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+// Configure multer for memory storage (we'll upload directly to Cloudinary)
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Accept only image files
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'), false);
+    }
+  },
+});
 
 // MySQL Configuration
 const dbConfig = {
@@ -380,6 +408,121 @@ app.get("/", (req, res) => {
     message: "CampusEats API is running",
     timestamp: new Date().toISOString(),
   });
+});
+
+// ======================== IMAGE UPLOAD ROUTE =========================
+// Upload image to Cloudinary and return URL
+app.post("/api/upload-image", upload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ 
+        success: false, 
+        error: "No image file provided" 
+      });
+    }
+
+    // Check if Cloudinary is configured
+    if (!process.env.CLOUDINARY_CLOUD_NAME || 
+        !process.env.CLOUDINARY_API_KEY || 
+        !process.env.CLOUDINARY_API_SECRET) {
+      console.warn("⚠️ Cloudinary not configured - returning base64 fallback");
+      // Fallback: return base64 if Cloudinary not configured
+      const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+      return res.json({
+        success: true,
+        data: {
+          url: base64,
+          secure_url: base64,
+          public_id: null,
+        },
+        warning: "Cloudinary not configured - using base64 fallback"
+      });
+    }
+
+    // Upload to Cloudinary
+    return new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: 'campuseats', // Organize images in a folder
+          resource_type: 'auto', // Auto-detect image type
+        },
+        (error, result) => {
+          if (error) {
+            console.error("Cloudinary upload error:", error);
+            return reject(error);
+          }
+          
+          res.json({
+            success: true,
+            data: {
+              url: result.secure_url,
+              public_id: result.public_id,
+            },
+          });
+          resolve();
+        }
+      );
+
+      // Pipe the buffer to Cloudinary
+      streamifier.createReadStream(req.file.buffer).pipe(uploadStream);
+    });
+  } catch (error) {
+    console.error("Image upload error:", error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || "Failed to upload image" 
+    });
+  }
+});
+
+// Alternative: Accept base64 image and upload to Cloudinary
+app.post("/api/upload-image-base64", async (req, res) => {
+  try {
+    const { image } = req.body; // Base64 string (data:image/...;base64,...)
+    
+    if (!image) {
+      return res.status(400).json({ 
+        success: false, 
+        error: "No image data provided" 
+      });
+    }
+
+    // Check if Cloudinary is configured
+    if (!process.env.CLOUDINARY_CLOUD_NAME || 
+        !process.env.CLOUDINARY_API_KEY || 
+        !process.env.CLOUDINARY_API_SECRET) {
+      // Fallback: return the base64 as-is
+      return res.json({
+        success: true,
+        data: {
+          url: image,
+          secure_url: image,
+          public_id: null,
+        },
+        warning: "Cloudinary not configured - using base64 fallback"
+      });
+    }
+
+    // Upload base64 to Cloudinary
+    const result = await cloudinary.uploader.upload(image, {
+      folder: 'campuseats',
+      resource_type: 'auto',
+    });
+
+    res.json({
+      success: true,
+      data: {
+        url: result.secure_url,
+        public_id: result.public_id,
+      },
+    });
+  } catch (error) {
+    console.error("Base64 image upload error:", error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || "Failed to upload image" 
+    });
+  }
 });
 
 async function startServer() {

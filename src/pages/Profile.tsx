@@ -89,14 +89,12 @@ export default function Profile() {
         }
 
         const shop = shops.data[0];
-        let screenshotBase64 = existingScreenshot;
+        let screenshotUrl = existingScreenshot;
 
         if (screenshot) {
-          const reader = new FileReader();
-          screenshotBase64 = await new Promise<string>((resolve) => {
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.readAsDataURL(screenshot);
-          });
+          // Upload image to Cloudinary (or get base64 fallback)
+          const { uploadImage } = await import('@/lib/imageUpload');
+          screenshotUrl = await uploadImage(screenshot);
         }
 
         const response = await fetch(`${API_URL}/shops/${shop.id}`, {
@@ -104,7 +102,7 @@ export default function Profile() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             upiId: upiId || null,
-            payment_screenshot: screenshotBase64 || null,
+            payment_screenshot: screenshotUrl || null,
           }),
         });
 
@@ -124,8 +122,8 @@ export default function Profile() {
         if (fileInputRef.current) {
           fileInputRef.current.value = '';
         }
-        if (screenshotBase64) {
-          setExistingScreenshot(screenshotBase64);
+        if (screenshotUrl) {
+          setExistingScreenshot(screenshotUrl);
         }
       } catch (error: any) {
         console.error('Error saving profile:', error);

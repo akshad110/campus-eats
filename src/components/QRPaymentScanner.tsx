@@ -88,55 +88,47 @@ export const QRPaymentScanner: React.FC<QRPaymentScannerProps> = ({
 
     setIsSubmitting(true);
     try {
-      // Convert image to base64
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        try {
-          const base64Image = reader.result as string;
-          
-          // Upload screenshot to backend and update order status
-          const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
-          const response = await fetch(`${API_URL}/orders/${orderId}/payment-screenshot`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              screenshot: base64Image,
-              payment_status: 'pending',
-            }),
-          });
+      // Upload image to Cloudinary (or get base64 fallback)
+      const { uploadImage } = await import('@/lib/imageUpload');
+      const imageUrl = await uploadImage(screenshot);
+      
+      const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+      
+      // Upload screenshot to backend and update order status
+      const response = await fetch(`${API_URL}/orders/${orderId}/payment-screenshot`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          screenshot: imageUrl,
+          payment_status: 'pending',
+        }),
+      });
 
-          if (!response.ok) {
-            throw new Error('Failed to upload screenshot');
-          }
+      if (!response.ok) {
+        throw new Error('Failed to upload screenshot');
+      }
 
-          // Update order status to payment_pending
-          const statusResponse = await fetch(`${API_URL}/orders/${orderId}/status`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              payment_status: 'pending',
-              payment_screenshot: base64Image,
-            }),
-          });
+      // Update order status to payment_pending
+      const statusResponse = await fetch(`${API_URL}/orders/${orderId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          payment_status: 'pending',
+          payment_screenshot: imageUrl,
+        }),
+      });
 
-          if (!statusResponse.ok) {
-            throw new Error('Failed to update order status');
-          }
+      if (!statusResponse.ok) {
+        throw new Error('Failed to update order status');
+      }
 
-          setIsSubmitted(true);
-          setIsSubmitting(false);
-          
-          // Call onSuccess callback to refresh orders list
-          if (onSuccess) {
-            onSuccess();
-          }
-        } catch (error) {
-          console.error('Error submitting payment:', error);
-          alert('Failed to submit payment screenshot. Please try again.');
-          setIsSubmitting(false);
-        }
-      };
-      reader.readAsDataURL(screenshot);
+      setIsSubmitted(true);
+      setIsSubmitting(false);
+      
+      // Call onSuccess callback to refresh orders list
+      if (onSuccess) {
+        onSuccess();
+      }
     } catch (error) {
       console.error('Error submitting payment:', error);
       alert('Failed to submit payment screenshot. Please try again.');
