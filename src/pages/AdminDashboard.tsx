@@ -365,32 +365,32 @@ const AdminDashboard = () => {
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50">
       <Navigation />
 
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-6 md:py-8">
         {/* Welcome Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
             Welcome back, {user?.name}! 👨‍🍳
           </h1>
-          <p className="text-gray-600">
+          <p className="text-sm sm:text-base text-gray-600">
             Manage your shop and track orders in real-time
           </p>
         </div>
 
         {/* No Shops Warning */}
         {userShops.length === 0 && (
-          <Card className="mb-8 border-orange-200 bg-orange-50">
-            <CardContent className="p-6">
+          <Card className="mb-6 sm:mb-8 border-orange-200 bg-orange-50">
+            <CardContent className="p-4 sm:p-6">
               <div className="text-center">
-                <Store className="h-16 w-16 text-orange-400 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-orange-800 mb-2">
+                <Store className="h-12 w-12 sm:h-16 sm:w-16 text-orange-400 mx-auto mb-3 sm:mb-4" />
+                <h3 className="text-lg sm:text-xl font-semibold text-orange-800 mb-2">
                   No Shops Setup Yet
                 </h3>
-                <p className="text-orange-700 mb-6">
+                <p className="text-sm sm:text-base text-orange-700 mb-4 sm:mb-6 px-2">
                   You haven't created any shops yet. Set up your first shop to
                   start selling!
                 </p>
                 <Link to="/admin/shop-setup">
-                  <Button className="bg-orange-500 hover:bg-orange-600 text-white">
+                  <Button className="bg-orange-500 hover:bg-orange-600 text-white text-sm sm:text-base">
                     <Plus className="h-4 w-4 mr-2" />
                     Create Your First Shop
                   </Button>
@@ -402,16 +402,16 @@ const AdminDashboard = () => {
 
         {/* Shops List */}
         {userShops.length > 0 && (
-          <Card className="mb-8 border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span className="flex items-center">
-                  <Store className="h-5 w-5 mr-2 text-orange-600" />
+          <Card className="mb-6 sm:mb-8 border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+            <CardHeader className="p-4 sm:p-6">
+              <CardTitle className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+                <span className="flex items-center text-base sm:text-lg">
+                  <Store className="h-4 w-4 sm:h-5 sm:w-5 mr-2 text-orange-600" />
                   Your Shops ({userShops.length})
                 </span>
                 <Link to="/admin/shop-setup">
-                  <Button size="sm">
-                    <Plus className="h-4 w-4 mr-2" />
+                  <Button size="sm" className="w-full sm:w-auto text-xs sm:text-sm">
+                    <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
                     Add New Shop
                   </Button>
                 </Link>

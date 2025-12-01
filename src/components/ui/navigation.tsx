@@ -25,19 +25,19 @@ export const Navigation = () => {
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <Link to="/" className="flex items-center space-x-2">
-            <div className="h-8 w-8 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 flex items-center justify-center text-white font-bold">
+      <div className="container flex h-14 sm:h-16 items-center justify-between px-4 sm:px-6">
+        <div className="flex items-center space-x-2 sm:space-x-4 min-w-0">
+          <Link to="/" className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
+            <div className="h-6 w-6 sm:h-8 sm:w-8 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 flex items-center justify-center text-white font-bold text-xs sm:text-base">
               🍽️
             </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
+            <span className="text-base sm:text-xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
               CampusEats
             </span>
           </Link>
 
           {/* Always show Home link for easy navigation */}
-          <div className="hidden md:flex items-center space-x-4 ml-8">
+          <div className="hidden md:flex items-center space-x-4 ml-4 sm:ml-8">
             <Link
               to={
                 user
@@ -179,17 +179,17 @@ export const Navigation = () => {
           )}
         </div>
 
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-2 sm:space-x-4">
           {/* Backend Status Indicator */}
           {/* Removed BackendStatus component usage */}
 
           {!user ? (
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1 sm:space-x-2">
               <Link to="/auth">
-                <Button variant="ghost">Sign In</Button>
+                <Button variant="ghost" className="text-xs sm:text-sm px-2 sm:px-4">Sign In</Button>
               </Link>
               <Link to="/auth">
-                <Button className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600">
+                <Button className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-xs sm:text-sm px-2 sm:px-4">
                   Get Started
                 </Button>
               </Link>

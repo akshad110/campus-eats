@@ -57,31 +57,31 @@ const Landing = () => {
       <Navigation />
 
       {/* Hero Section */}
-      <section className="relative container mx-auto px-4 py-20 overflow-hidden">
+      <section className="relative container mx-auto px-4 py-12 sm:py-16 md:py-20 overflow-hidden">
         {/* Animated background elements */}
         <div className="absolute inset-0 opacity-20">
-          <div className="absolute top-20 left-10 w-32 h-32 bg-gradient-to-r from-orange-400 to-amber-400 rounded-full animate-pulse blur-xl"></div>
-          <div className="absolute top-40 right-20 w-24 h-24 bg-gradient-to-r from-amber-400 to-yellow-400 rounded-full animate-bounce blur-lg"></div>
-          <div className="absolute bottom-20 left-1/4 w-20 h-20 bg-gradient-to-r from-orange-500 to-red-400 rounded-full animate-ping blur-lg"></div>
-          <div className="absolute bottom-40 right-1/3 w-28 h-28 bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full animate-pulse blur-xl"></div>
+          <div className="absolute top-20 left-10 w-16 h-16 sm:w-24 sm:h-24 md:w-32 md:h-32 bg-gradient-to-r from-orange-400 to-amber-400 rounded-full animate-pulse blur-xl"></div>
+          <div className="absolute top-40 right-20 w-12 h-12 sm:w-16 sm:h-16 md:w-24 md:h-24 bg-gradient-to-r from-amber-400 to-yellow-400 rounded-full animate-bounce blur-lg"></div>
+          <div className="absolute bottom-20 left-1/4 w-10 h-10 sm:w-16 sm:h-16 md:w-20 md:h-20 bg-gradient-to-r from-orange-500 to-red-400 rounded-full animate-ping blur-lg"></div>
+          <div className="absolute bottom-40 right-1/3 w-14 h-14 sm:w-20 sm:h-20 md:w-28 md:h-28 bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full animate-pulse blur-xl"></div>
         </div>
 
-        <div className="relative text-center max-w-4xl mx-auto">
-          <Badge className="mb-6 bg-gradient-to-r from-orange-100 to-amber-100 text-orange-800 border-orange-200 animate-bounce shadow-lg hover:shadow-orange-200/50 transition-all duration-300 transform hover:scale-105">
-            <Sparkles className="h-4 w-4 mr-1 animate-pulse" />
+        <div className="relative text-center max-w-4xl mx-auto px-2">
+          <Badge className="mb-4 sm:mb-6 bg-gradient-to-r from-orange-100 to-amber-100 text-orange-800 border-orange-200 animate-bounce shadow-lg hover:shadow-orange-200/50 transition-all duration-300 transform hover:scale-105 text-xs sm:text-sm">
+            <Sparkles className="h-3 w-3 sm:h-4 sm:w-4 mr-1 animate-pulse" />
             Revolutionizing Campus Dining
           </Badge>
 
-          <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-orange-600 via-amber-600 to-yellow-600 bg-clip-text text-transparent leading-tight animate-fade-in transform hover:scale-105 transition-transform duration-500">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-bold mb-4 sm:mb-6 bg-gradient-to-r from-orange-600 via-amber-600 to-yellow-600 bg-clip-text text-transparent leading-tight animate-fade-in transform hover:scale-105 transition-transform duration-500 px-2">
             Skip the Queue,
             <br />
             <span className="relative">
               Savor the Food
-              <div className="absolute -bottom-4 left-0 right-0 h-2 bg-gradient-to-r from-orange-500 to-amber-500 rounded-full opacity-30 animate-pulse"></div>
+              <div className="absolute -bottom-2 sm:-bottom-4 left-0 right-0 h-1 sm:h-2 bg-gradient-to-r from-orange-500 to-amber-500 rounded-full opacity-30 animate-pulse"></div>
             </span>
           </h1>
 
-          <p className="text-xl md:text-2xl text-gray-600 mb-8 leading-relaxed animate-fade-in-delay">
+          <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-gray-600 mb-6 sm:mb-8 leading-relaxed animate-fade-in-delay px-2 sm:px-4">
             Order from any campus food shop, get a token, and pick up your meal
             when it's ready. No more waiting in crowded food courts.
           </p>
@@ -121,49 +121,49 @@ const Landing = () => {
             </div>
           </div>
 
-          {/* Floating food emojis */}
-          <div className="absolute top-10 left-1/4 text-4xl animate-bounce opacity-70">
+          {/* Floating food emojis - hidden on mobile */}
+          <div className="hidden sm:block absolute top-10 left-1/4 text-2xl sm:text-3xl md:text-4xl animate-bounce opacity-70">
             🍕
           </div>
-          <div className="absolute top-32 right-1/4 text-3xl animate-pulse opacity-70">
+          <div className="hidden sm:block absolute top-32 right-1/4 text-xl sm:text-2xl md:text-3xl animate-pulse opacity-70">
             🍔
           </div>
-          <div className="absolute bottom-20 left-1/3 text-3xl animate-bounce delay-1000 opacity-70">
+          <div className="hidden sm:block absolute bottom-20 left-1/3 text-xl sm:text-2xl md:text-3xl animate-bounce delay-1000 opacity-70">
             🥗
           </div>
-          <div className="absolute bottom-32 right-1/5 text-4xl animate-pulse delay-2000 opacity-70">
+          <div className="hidden sm:block absolute bottom-32 right-1/5 text-2xl sm:text-3xl md:text-4xl animate-pulse delay-2000 opacity-70">
             🍜
           </div>
         </div>
       </section>
 
       {/* Stats Section */}
-      <section className="container mx-auto px-4 py-16">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+      <section className="container mx-auto px-4 py-8 sm:py-12 md:py-16">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 md:gap-8">
           {stats.map((stat, index) => (
-            <div key={index} className="text-center">
-              <div className="text-3xl md:text-4xl font-bold text-orange-600 mb-2">
+            <div key={index} className="text-center px-2">
+              <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-orange-600 mb-1 sm:mb-2">
                 {stat.number}
               </div>
-              <div className="text-gray-600 font-medium">{stat.label}</div>
+              <div className="text-xs sm:text-sm md:text-base text-gray-600 font-medium">{stat.label}</div>
             </div>
           ))}
         </div>
       </section>
 
       {/* Features Section */}
-      <section className="container mx-auto px-4 py-20">
-        <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-bold mb-6 text-gray-900">
+      <section className="container mx-auto px-4 py-12 sm:py-16 md:py-20">
+        <div className="text-center mb-8 sm:mb-12 md:mb-16 px-2">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 sm:mb-6 text-gray-900">
             Why Choose CampusEats?
           </h2>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+          <p className="text-base sm:text-lg md:text-xl text-gray-600 max-w-2xl mx-auto px-2">
             Built specifically for university food courts to eliminate wait
             times and improve your dining experience.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 md:gap-8">
           {features.map((feature, index) => (
             <Card
               key={index}
@@ -195,17 +195,17 @@ const Landing = () => {
       </section>
 
       {/* How It Works Section */}
-      <section className="container mx-auto px-4 py-20">
-        <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-bold mb-6 text-gray-900">
+      <section className="container mx-auto px-4 py-12 sm:py-16 md:py-20">
+        <div className="text-center mb-8 sm:mb-12 md:mb-16 px-2">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 sm:mb-6 text-gray-900">
             How It Works
           </h2>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+          <p className="text-base sm:text-lg md:text-xl text-gray-600 max-w-2xl mx-auto px-2">
             Simple, fast, and designed for busy students.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 max-w-6xl mx-auto px-2">
           <div className="text-center">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 text-white text-2xl font-bold mb-6">
               1
@@ -248,22 +248,22 @@ const Landing = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="container mx-auto px-4 py-20">
-        <div className="bg-gradient-to-r from-orange-500 to-amber-500 rounded-3xl p-12 text-center text-white">
-          <h2 className="text-4xl md:text-5xl font-bold mb-6">
+      <section className="container mx-auto px-4 py-12 sm:py-16 md:py-20">
+        <div className="bg-gradient-to-r from-orange-500 to-amber-500 rounded-2xl sm:rounded-3xl p-6 sm:p-8 md:p-12 text-center text-white">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 sm:mb-6">
             Ready to Skip the Queue?
           </h2>
-          <p className="text-xl mb-8 opacity-90">
+          <p className="text-base sm:text-lg md:text-xl mb-6 sm:mb-8 opacity-90 px-2">
             Join thousands of students who've made their campus dining
             experience better.
           </p>
           <Link to="/auth">
             <Button
               size="lg"
-              className="bg-white text-orange-600 hover:bg-gray-100 px-8 py-4 text-lg font-semibold shadow-xl transform hover:scale-105 transition-all duration-200"
+              className="bg-white text-orange-600 hover:bg-gray-100 px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-semibold shadow-xl transform hover:scale-105 transition-all duration-200"
             >
               Get Started Today
-              <Zap className="ml-2 h-5 w-5" />
+              <Zap className="ml-2 h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
           </Link>
         </div>

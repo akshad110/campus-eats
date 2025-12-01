@@ -187,21 +187,21 @@ const UserDashboard = () => {
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50">
       <Navigation />
 
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-6 md:py-8">
         {/* Welcome Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
             Welcome back, {user?.name}! 👋
           </h1>
-          <p className="text-gray-600">
+          <p className="text-sm sm:text-base text-gray-600">
             Ready to order from your favorite campus shops?
           </p>
         </div>
 
         {/* Search Bar */}
-        <Card className="mb-8 border-0 shadow-lg bg-white/80 backdrop-blur-sm transform hover:scale-[1.02] transition-all duration-300">
-          <CardContent className="p-6">
-            <div className="flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-4">
+        <Card className="mb-6 sm:mb-8 border-0 shadow-lg bg-white/80 backdrop-blur-sm transform hover:scale-[1.02] transition-all duration-300">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex flex-col md:flex-row items-stretch md:items-center space-y-3 md:space-y-0 md:space-x-4">
               <div className="relative flex-1 w-full">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <Input
@@ -209,15 +209,15 @@ const UserDashboard = () => {
                   placeholder="Search for shops, food items..."
                   value={searchQuery}
                   onChange={handleSearch}
-                  className="pl-10 pr-4 py-3 border-gray-200 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-300"
+                  className="pl-10 pr-4 py-2 sm:py-3 border-gray-200 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-300 text-sm sm:text-base"
                 />
               </div>
               <div className="flex items-center space-x-2">
-                <Filter className="h-4 w-4 text-gray-500" />
+                <Filter className="h-4 w-4 text-gray-500 flex-shrink-0" />
                 <select
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white"
+                  className="flex-1 sm:flex-none px-3 sm:px-4 py-2 sm:py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white text-sm sm:text-base"
                 >
                   {categories.map((category) => (
                     <option key={category} value={category}>
@@ -274,7 +274,7 @@ const UserDashboard = () => {
               {/* Remove the Refresh Shops button from the home page */}
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {filteredShops.map((shop, index) => (
                 <Card
                   key={`all-${shop.id}`}
@@ -289,25 +289,27 @@ const UserDashboard = () => {
                       This shop is currently unavailable.
                     </div>
                   )}
-                  <CardHeader className="pb-4 relative overflow-hidden">
+                  <CardHeader className="pb-3 sm:pb-4 relative overflow-hidden p-4 sm:p-6">
                     <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-amber-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                    <div className="relative flex items-start justify-between">
-                      <div>
-                        <CardTitle className="text-lg font-semibold text-gray-900 group-hover:text-orange-600 transition-colors flex items-center">
-                          {shop.name}
+                    <div className="relative flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <CardTitle className="text-base sm:text-lg font-semibold text-gray-900 group-hover:text-orange-600 transition-colors flex items-center flex-wrap gap-1">
+                          <span className="truncate">{shop.name}</span>
                           {shop.closed && (
-                            <span className="ml-2 px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-bold">Unavailable</span>
+                            <span className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-bold whitespace-nowrap">Unavailable</span>
                           )}
-                          <ArrowRight className="h-4 w-4 ml-2 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-300" />
+                          <ArrowRight className="h-4 w-4 ml-2 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-300 flex-shrink-0" />
                         </CardTitle>
-                        <p className="text-sm text-gray-500 mt-1">
+                        <p className="text-xs sm:text-sm text-gray-500 mt-1 truncate">
                           {shop.category}
                         </p>
                       </div>
-                      {getCrowdBadge(shop.crowdLevel)}
+                      <div className="flex-shrink-0">
+                        {getCrowdBadge(shop.crowdLevel)}
+                      </div>
                     </div>
                   </CardHeader>
-                  <CardContent className="pt-0">
+                  <CardContent className="pt-0 p-4 sm:p-6">
                     <div className="flex items-center text-sm text-gray-600 mb-2">
                       <Clock className="mr-1" size={14} />
                       <span>{shop.estimatedWaitTime} min wait</span>

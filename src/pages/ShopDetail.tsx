@@ -390,21 +390,21 @@ const ShopDetail = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 flex flex-col">
       <Navigation />
-      <div className="container mx-auto px-4 py-8 flex-grow">
+      <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-6 md:py-8 flex-grow">
         <div className="max-w-6xl mx-auto">
           {/* Back button */}
           <Button
             variant="outline"
             onClick={() => navigate("/home")}
-            className="mb-6"
+            className="mb-4 sm:mb-6 text-sm sm:text-base"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Shops
           </Button>
 
           {/* Shop Header */}
-          <Card className="mb-8 overflow-hidden border-0 shadow-lg">
-            <div className="h-48 bg-gray-200">
+          <Card className="mb-6 sm:mb-8 overflow-hidden border-0 shadow-lg">
+            <div className="h-32 sm:h-40 md:h-48 bg-gray-200">
               {shop.image && (
                 <img
                   src={shop.image}
@@ -413,25 +413,25 @@ const ShopDetail = () => {
                 />
               )}
             </div>
-            <CardContent className="p-6 bg-white/80 backdrop-blur-sm">
-              <div className="flex flex-col md:flex-row md:items-start md:justify-between">
-                <div>
-                  <CardTitle className="text-3xl font-bold text-gray-900">
+            <CardContent className="p-4 sm:p-6 bg-white/80 backdrop-blur-sm">
+              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <CardTitle className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 break-words">
                     {shop.name}
                   </CardTitle>
-                  <p className="text-gray-600 mt-1">{shop.description}</p>
-                  <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
+                  <p className="text-sm sm:text-base text-gray-600 mt-1 break-words">{shop.description}</p>
+                  <div className="flex flex-wrap items-center gap-3 sm:gap-4 mt-2 text-xs sm:text-sm text-gray-500">
                     <span className="flex items-center">
-                      <Star className="h-4 w-4 mr-1 text-yellow-500" /> 4.5
+                      <Star className="h-3 w-3 sm:h-4 sm:w-4 mr-1 text-yellow-500" /> 4.5
                     </span>
                     <span className="flex items-center">
-                      <Clock className="h-4 w-4 mr-1" />
+                      <Clock className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
                       {shop.estimatedWaitTime} min wait
                     </span>
                     {getCrowdBadge(shop.crowdLevel)}
                   </div>
                 </div>
-                <Button variant="outline" className="mt-4 md:mt-0">
+                <Button variant="outline" className="mt-4 md:mt-0 w-full md:w-auto text-sm sm:text-base">
                   <Heart className="h-4 w-4 mr-2" />
                   Favorite
                 </Button>
@@ -440,54 +440,56 @@ const ShopDetail = () => {
           </Card>
 
           {/* Main content grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
             {/* Menu Items */}
-            <div className="lg:col-span-2 space-y-4">
-              <h2 className="text-2xl font-bold text-gray-800">Menu</h2>
+            <div className="lg:col-span-2 space-y-3 sm:space-y-4">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-800">Menu</h2>
               {menuItems.filter(item => item.isAvailable !== false).map((item) => (
                 <Card
                   key={item.id}
                   className="border-0 shadow-md hover:shadow-lg transition-shadow"
                 >
-                  <CardContent className="p-4 flex items-center justify-between">
-                    <div className="flex items-center">
-                      <div className="w-16 h-16 bg-gray-100 rounded-lg mr-4 overflow-hidden">
+                  <CardContent className="p-3 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+                    <div className="flex items-center flex-1 min-w-0 w-full sm:w-auto">
+                      <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-100 rounded-lg mr-3 sm:mr-4 overflow-hidden flex-shrink-0">
                         <img
                           src={item.image}
                           alt={item.name}
                           className="w-full h-full object-cover"
                         />
                       </div>
-                      <div>
-                        <h3 className="font-semibold text-gray-800">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-sm sm:text-base text-gray-800 truncate">
                           {item.name}
                         </h3>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-xs sm:text-sm text-gray-500 line-clamp-2">
                           {item.description}
                         </p>
-                        <p className="text-sm font-bold text-orange-600 mt-1">
+                        <p className="text-xs sm:text-sm font-bold text-orange-600 mt-1">
                           ₹{item.price.toFixed(2)}
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 w-full sm:w-auto justify-end sm:justify-start">
                       <Button
                         variant="outline"
                         size="icon"
+                        className="h-8 w-8 sm:h-10 sm:w-10"
                         onClick={() => updateLocalCart(item.id, -1)}
                         disabled={!localCart[item.id]}
                       >
-                        <Minus className="h-4 w-4" />
+                        <Minus className="h-3 w-3 sm:h-4 sm:w-4" />
                       </Button>
-                      <span className="w-8 text-center">
+                      <span className="w-8 text-center text-sm sm:text-base">
                         {localCart[item.id] || 0}
                       </span>
                       <Button
                         variant="outline"
                         size="icon"
+                        className="h-8 w-8 sm:h-10 sm:w-10"
                         onClick={() => updateLocalCart(item.id, 1)}
                       >
-                        <Plus className="h-4 w-4" />
+                        <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
                       </Button>
                     </div>
                   </CardContent>
@@ -497,15 +499,15 @@ const ShopDetail = () => {
 
             {/* Cart and Order Status */}
             <div className="lg:col-span-1">
-              <div className="sticky top-24">
+              <div className="sticky top-20 sm:top-24">
                 <Card className="border-0 shadow-lg">
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <ShoppingCart className="h-5 w-5 mr-2" />
+                  <CardHeader className="p-4 sm:p-6">
+                    <CardTitle className="flex items-center text-base sm:text-lg">
+                      <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
                       Your Order
                     </CardTitle>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="p-4 sm:p-6">
                     {getTotalItems() === 0 ? (
                       <div className="text-center py-8">
                         <p>Your cart is empty.</p>
