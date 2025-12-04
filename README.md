@@ -66,7 +66,9 @@ To avoid heavy rush and overcrowding, the system uses a **Dynamic Token System**
 
 ## 📸 Screenshots
 
-> Add screenshots here after uploading them via Issues tab in GitHub.
+<img width="1919" height="909" alt="image" src="https://github.com/user-attachments/assets/6d2222c1-861d-4dc5-a4ff-6a8ee51cc4ba" />
+
+<img width="1919" height="909" alt="image" src="https://github.com/user-attachments/assets/b76773ed-a57c-44d2-bf8a-c4cea267c74a" />
 
 ---
 
