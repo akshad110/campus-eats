@@ -108,15 +108,15 @@ npm start
 🚀 Future Enhancements
 
 UPI/Online payments
-
 Stall-owner dashboard
-
 Automated notifications
-
 Order scheduling
-
 AI-based demand prediction
 
 🙌 Developer
 
 Akshad – Full Stack Developer
+
+📝 License
+
+MIT License © 2025 Campus Eats
