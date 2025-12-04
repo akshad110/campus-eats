@@ -108,20 +108,4 @@ DB_HOST=localhost
 DB_USER=root
 DB_PASSWORD=yourpassword
 DB_NAME=campuseats
-🚀 Future Enhancements
-UPI / Online Payment Integration
 
-Stall-owner Dashboard
-
-Automated Push Notifications
-
-Order Scheduling
-
-AI-Based Demand Prediction
-
-🙌 Developer
-Akshad
-Full Stack Developer
-
-📝 License
-MIT License © 2025 Campus Eats
