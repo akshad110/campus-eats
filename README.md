@@ -66,8 +66,10 @@ To avoid heavy rush and overcrowding, the system uses a **Dynamic Token System**
 
 ## 📸 Screenshots
 
+**Home Page**
 <img width="1915" height="907" alt="Screenshot 2025-12-04 220549" src="https://github.com/user-attachments/assets/9b8262ae-a5c2-4479-b65a-ac28d2137bba" />
 
+** ShopKeeper DashBaord
 <img width="1919" height="909" alt="image" src="https://github.com/user-attachments/assets/b76773ed-a57c-44d2-bf8a-c4cea267c74a" />
 
 ---
