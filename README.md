@@ -76,3 +76,22 @@ To avoid heavy rush and overcrowding, the system uses a **Dynamic Token System**
 ```bash
 git clone https://github.com/akshad110/campus-eats
 cd campus-eats
+
+▶️ 2. Run Frontend
+cd frontend
+npm install
+npm run dev
+
+▶️ 3. Run Backend
+cd backend
+npm install
+npm start
+
+
+📌 Make sure to configure your .env file with MySQL credentials
+Example:
+
+DB_HOST=localhost
+DB_USER=root
+DB_PASSWORD=yourpassword
+DB_NAME=campuseats
