@@ -11,9 +11,9 @@
 
 ## ⭐ Overview
 
-**Campus Eats** is a takeaway-focused food ordering platform built for college campuses.  
-To avoid rush and long queues, it uses a **Dynamic Token System**.  
-Every order receives a **unique token**, and customers pick up their food **only when their token is active**, preventing crowding at food stalls.
+**Campus Eats** is a takeaway-focused food ordering platform designed for college campuses.  
+To avoid heavy rush and overcrowding at food stalls, the system uses a **Dynamic Token System**.  
+Each order gets a **unique token number**, and customers pick up their food **only when their token becomes active**, ensuring a smooth and organized experience.
 
 🔗 **Live Preview:** https://takeaway-7f04.onrender.com  
 🔗 **GitHub Repository:** https://github.com/akshad110/campus-eats
@@ -22,30 +22,30 @@ Every order receives a **unique token**, and customers pick up their food **only
 
 ## 🎯 Features
 
-### 🔢 Dynamic Token System (Core Feature)
-- Generates **unique tokens** for each order  
+### 🔢 Dynamic Token System
+- Unique token generation for every order  
 - Real-time updates using **WebSockets**  
-- Avoids unnecessary rush outside food counters  
-- Stall owners can update order status live  
+- Helps avoid queues and crowd gathering  
+- Stall owners can update token progress live  
 
 ### 🍽️ Easy Food Ordering
-- Menu browsing  
-- Cart & checkout  
-- Fast takeaway ordering  
+- Browse menu items  
+- Add to cart  
+- Smooth checkout experience  
 
 ### 🧑‍💻 Authentication
-- Login / Register  
-- Secure user session handling  
+- Login & Register  
+- Secure session handling  
 
 ### 📡 Real-Time Tracking
 - Live token movement  
-- Order preparation tracking  
-- "Ready for Pickup" notification state  
+- Real-time order preparation updates  
+- Clear “Ready for Pickup” status  
 
 ### 🎨 Modern UI/UX
-- Clean and fast UI with **React + TypeScript**  
-- **TailwindCSS** for modern styling  
-- Fully responsive design  
+- Built using **React + TypeScript**  
+- Styled with **TailwindCSS**  
+- Fully responsive and mobile-friendly  
 
 ---
 
@@ -60,23 +60,23 @@ Every order receives a **unique token**, and customers pick up their food **only
 ### 🖥️ Backend
 - Node.js  
 - Express.js  
-- WebSockets (Socket.io)  
+- Socket.io (WebSockets)  
 - MySQL  
 
 ### 🚀 Deployment
 - Frontend: Vercel / Render  
 - Backend: Render / Railway  
-- Database: MySQL Server / PlanetScale  
+- Database: MySQL / PlanetScale  
 
 ---
 
 ## 📸 Project Screenshots
 
-> 📌 **Add your screenshots here.**  
-> Follow instructions at the bottom of this README to upload images.
+📌 **Add your screenshots here**  
+Follow the instructions at the bottom of this file.
 
 <!--  
-Example (put actual links after uploading them in GitHub Issues):
+Example (replace IMAGE_LINK_HERE after uploading screenshots):
 
 ![Home Page](IMAGE_LINK_HERE)
 ![Food Menu](IMAGE_LINK_HERE)
@@ -86,38 +86,41 @@ Example (put actual links after uploading them in GitHub Issues):
 
 ---
 
+## 🧪 Running the Project Locally
 
 ### 📂 1. Clone the repository
 ```bash
 git clone https://github.com/akshad110/campus-eats
 cd campus-eats
-
 ▶️ 2. Run Frontend
+bash
+Copy code
 cd frontend
 npm install
 npm run dev
-
 ▶️ 3. Run Backend
+bash
+Copy code
 cd backend
 npm install
 npm start
-
----
-
-📌 Make sure to configure your .env file with MySQL credentials.
+📌 Make sure to configure your .env file with MySQL credentials
+(example: DB_HOST, DB_USER, DB_PASSWORD, DB_NAME).
 
 🚀 Future Enhancements
+UPI / Online payment integration
 
-UPI/Online payments
 Stall-owner dashboard
-Automated notifications
+
+Automated push notifications
+
 Order scheduling
+
 AI-based demand prediction
 
 🙌 Developer
-
-Akshad – Full Stack Developer
+Akshad
+Full Stack Developer
 
 📝 License
-
 MIT License © 2025 Campus Eats
