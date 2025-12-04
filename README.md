@@ -86,5 +86,37 @@ Example (put actual links after uploading them in GitHub Issues):
 
 ---
 
-## 🏗️ System Architecture
 
+### 📂 1. Clone the repository
+```bash
+git clone https://github.com/akshad110/campus-eats
+cd campus-eats
+
+▶️ 2. Run Frontend
+cd frontend
+npm install
+npm run dev
+
+▶️ 3. Run Backend
+cd backend
+npm install
+npm start
+
+
+📌 Make sure to configure your .env file with MySQL credentials.
+
+🚀 Future Enhancements
+
+UPI/Online payments
+
+Stall-owner dashboard
+
+Automated notifications
+
+Order scheduling
+
+AI-based demand prediction
+
+🙌 Developer
+
+Akshad – Full Stack Developer
