@@ -102,6 +102,7 @@ cd backend
 npm install
 npm start
 
+---
 
 📌 Make sure to configure your .env file with MySQL credentials.
 
