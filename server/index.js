@@ -2179,14 +2179,15 @@ app.post("/api/razorpay/verify-payment", async (req, res) => {
     // Update order status in database - set payment_status to completed and status to preparing
     const connection = await pool.getConnection();
     try {
-      // Get order details to set preparation time
+      // Get order details (shop_id). We don't store preparation_time in DB, so use a safe default.
       const [orderRows] = await connection.execute(
-        `SELECT shop_id, preparation_time FROM orders WHERE id = ?`,
+        `SELECT shop_id FROM orders WHERE id = ?`,
         [orderId]
       );
       
       const shopId = orderRows.length > 0 ? orderRows[0].shop_id : null;
-      const prepTime = orderRows[0]?.preparation_time || 15; // Default 15 minutes
+      // Default preparation time in minutes (can be adjusted later if column is added)
+      const prepTime = 15;
       
       // Calculate estimated pickup time
       const pickupDate = new Date(Date.now() + prepTime * 60000);
