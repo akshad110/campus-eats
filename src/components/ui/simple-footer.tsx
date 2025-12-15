@@ -17,15 +17,17 @@ export const SimpleFooter = () => {
           {/* Brand and copyright */}
           <div className="flex flex-col space-y-2">
             <div className="flex items-center space-x-2">
-              <div className="h-8 w-8 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 flex items-center justify-center text-white font-bold text-sm">
-                🍽️
-              </div>
+              <img 
+                src="/WhatsApp Image 2025-12-14 at 10.21.27 AM.jpeg" 
+                alt="TakeAway Logo" 
+                className="h-8 w-8 rounded-full object-cover"
+              />
               <span className="text-lg font-bold text-gray-900">
-                CampusEats
+                TakeAway
               </span>
             </div>
             <p className="text-sm text-gray-600">
-              © 2024 CampusEats. All rights reserved.
+              © 2024 TakeAway. All rights reserved.
             </p>
           </div>
 
@@ -72,14 +74,14 @@ export const SimpleFooter = () => {
           {/* Social links */}
           <div className="flex items-center space-x-3">
             {[
-              { icon: Twitter, href: "https://twitter.com/campuseats" },
-              { icon: Facebook, href: "https://facebook.com/campuseats" },
-              { icon: Instagram, href: "https://instagram.com/campuseats" },
+              { icon: Twitter, href: "https://twitter.com/takeaway" },
+              { icon: Facebook, href: "https://facebook.com/takeaway" },
+              { icon: Instagram, href: "https://instagram.com/takeaway" },
               {
                 icon: Linkedin,
-                href: "https://linkedin.com/company/campuseats",
+                href: "https://linkedin.com/company/takeaway",
               },
-              { icon: Github, href: "https://github.com/campuseats" },
+              { icon: Github, href: "https://github.com/takeaway" },
             ].map(({ icon: Icon, href }, index) => (
               <a
                 key={index}

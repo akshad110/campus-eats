@@ -10,12 +10,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 // Removed BackendStatus import as it is no longer used
 import { useAuth } from "@/contexts/AuthContext";
+import { useTranslation } from "react-i18next";
 import { LogOut, User, Settings, ShoppingCart } from "lucide-react";
 
 export const Navigation = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -28,11 +30,13 @@ export const Navigation = () => {
       <div className="container flex h-14 sm:h-16 items-center justify-between px-4 sm:px-6">
         <div className="flex items-center space-x-2 sm:space-x-4 min-w-0">
           <Link to="/" className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
-            <div className="h-6 w-6 sm:h-8 sm:w-8 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 flex items-center justify-center text-white font-bold text-xs sm:text-base">
-              🍽️
-            </div>
+            <img 
+              src="/WhatsApp Image 2025-12-14 at 10.21.27 AM.jpeg" 
+              alt="TakeAway Logo" 
+              className="h-6 w-6 sm:h-8 sm:w-8 rounded-full object-cover"
+            />
             <span className="text-base sm:text-xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
-              CampusEats
+              TakeAway
             </span>
           </Link>
 
@@ -57,7 +61,7 @@ export const Navigation = () => {
                   : "text-foreground/60"
               }`}
             >
-              {user ? "Home" : "Explore"}
+              {user ? t("nav.home") : t("nav.explore")}
             </Link>
 
             {user && user.role === "student" && (
@@ -67,7 +71,7 @@ export const Navigation = () => {
                   isActive("/orders") ? "text-foreground" : "text-foreground/60"
                 }`}
               >
-                My Orders
+                {t("nav.myOrders")}
               </Link>
             )}
 
@@ -81,7 +85,7 @@ export const Navigation = () => {
                       : "text-foreground/60"
                   }`}
                 >
-                  Shop Setup
+                  {t("nav.shopSetup")}
                 </Link>
                 <Link
                   to="/admin/menu"
@@ -91,7 +95,7 @@ export const Navigation = () => {
                       : "text-foreground/60"
                   }`}
                 >
-                  Menu
+                  {t("nav.menu")}
                 </Link>
                 <Link
                   to="/admin/orders"
@@ -101,7 +105,7 @@ export const Navigation = () => {
                       : "text-foreground/60"
                   }`}
                 >
-                  Orders
+                  {t("nav.orders")}
                 </Link>
               </>
             )}
@@ -115,7 +119,7 @@ export const Navigation = () => {
                     : "text-foreground/60"
                 }`}
               >
-                Analytics
+                {t("nav.analytics")}
               </Link>
             )}
           </div>
@@ -152,24 +156,24 @@ export const Navigation = () => {
                             : "/developer"
                       }
                     >
-                      Home
+                      {t("nav.home")}
                     </Link>
                   </DropdownMenuItem>
                   {user.role === "student" && (
                     <DropdownMenuItem asChild>
-                      <Link to="/orders">My Orders</Link>
+                      <Link to="/orders">{t("nav.myOrders")}</Link>
                     </DropdownMenuItem>
                   )}
                   {user.role === "shopkeeper" && (
                     <>
                       <DropdownMenuItem asChild>
-                        <Link to="/admin/shop-setup">Shop Setup</Link>
+                        <Link to="/admin/shop-setup">{t("nav.shopSetup")}</Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <Link to="/admin/menu">Menu</Link>
+                        <Link to="/admin/menu">{t("nav.menu")}</Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <Link to="/admin/orders">Orders</Link>
+                        <Link to="/admin/orders">{t("nav.orders")}</Link>
                       </DropdownMenuItem>
                     </>
                   )}
@@ -186,11 +190,11 @@ export const Navigation = () => {
           {!user ? (
             <div className="flex items-center space-x-1 sm:space-x-2">
               <Link to="/auth">
-                <Button variant="ghost" className="text-xs sm:text-sm px-2 sm:px-4">Sign In</Button>
+                <Button variant="ghost" className="text-xs sm:text-sm px-2 sm:px-4">{t("nav.signIn")}</Button>
               </Link>
               <Link to="/auth">
                 <Button className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-xs sm:text-sm px-2 sm:px-4">
-                  Get Started
+                  {t("nav.getStarted")}
                 </Button>
               </Link>
             </div>
@@ -223,16 +227,16 @@ export const Navigation = () => {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => navigate('/profile')}>
                   <User className="mr-2 h-4 w-4" />
-                  <span>Profile</span>
+                  <span>{t("nav.profile")}</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/settings')}>
                   <Settings className="mr-2 h-4 w-4" />
-                  <span>Settings</span>
+                  <span>{t("nav.settings")}</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout}>
                   <LogOut className="mr-2 h-4 w-4" />
-                  <span>Log out</span>
+                  <span>{t("nav.logout")}</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

@@ -7,10 +7,12 @@ export const MinimalFooter = () => {
         <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
           {/* Brand */}
           <div className="flex items-center space-x-2">
-            <div className="h-6 w-6 rounded bg-gradient-to-r from-orange-500 to-amber-500 flex items-center justify-center text-white font-bold text-xs">
-              🍽️
-            </div>
-            <span className="font-semibold text-gray-900">CampusEats</span>
+            <img 
+              src="/WhatsApp Image 2025-12-14 at 10.21.27 AM.jpeg" 
+              alt="TakeAway Logo" 
+              className="h-6 w-6 rounded object-cover"
+            />
+            <span className="font-semibold text-gray-900">TakeAway</span>
           </div>
 
           {/* Links */}
@@ -48,7 +50,7 @@ export const MinimalFooter = () => {
           </div>
 
           {/* Copyright */}
-          <div className="text-sm text-gray-500">© 2024 CampusEats</div>
+          <div className="text-sm text-gray-500">© 2024 TakeAway</div>
         </div>
       </div>
     </footer>

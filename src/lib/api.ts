@@ -415,7 +415,7 @@ class ApiService {
       createdAt: dbOrder.created_at,
       updatedAt: dbOrder.updated_at || dbOrder.created_at || "",
       rejectionReason: dbOrder.rejection_reason,
-      preparationTime: dbOrder.preparation_time,
+      preparationTime: dbOrder.preparation_time ?? 15, // Default to 15 minutes if not set
     };
   }
 
@@ -505,7 +505,7 @@ class ApiService {
         createdAt: dbOrder.created_at,
         updatedAt: dbOrder.updated_at || dbOrder.created_at || "",
         rejectionReason: dbOrder.rejection_reason,
-        preparationTime: dbOrder.preparation_time,
+        preparationTime: dbOrder.preparation_time ?? 15, // Default to 15 minutes if not set
       };
       // Include payment_screenshot if present
       if (dbOrder.payment_screenshot) {
@@ -567,7 +567,7 @@ class ApiService {
         createdAt: dbOrder.created_at,
         updatedAt: dbOrder.updated_at || dbOrder.created_at || "",
         rejectionReason: dbOrder.rejection_reason,
-        preparationTime: dbOrder.preparation_time,
+        preparationTime: dbOrder.preparation_time ?? 15, // Default to 15 minutes if not set
       };
       // Include payment_screenshot if present
       if (dbOrder.payment_screenshot) {
@@ -841,7 +841,7 @@ class ApiService {
       createdAt: dbOrder.created_at,
       updatedAt: dbOrder.updated_at || dbOrder.created_at || "",
       rejectionReason: dbOrder.rejection_reason,
-      preparationTime: dbOrder.preparation_time,
+      preparationTime: dbOrder.preparation_time ?? 15, // Default to 15 minutes if not set
     };
     // Include payment_screenshot if present
     if (dbOrder.payment_screenshot) {

@@ -136,7 +136,7 @@ export const QRPaymentScanner: React.FC<QRPaymentScannerProps> = ({
     }
   };
 
-  const upiString = `upi://pay?pa=${upiId}&am=${amount}&cu=INR&tn=CampusEats Order Payment`;
+  const upiString = `upi://pay?pa=${upiId}&am=${amount}&cu=INR&tn=TakeAway Order Payment`;
 
   if (isSubmitted) {
     return (

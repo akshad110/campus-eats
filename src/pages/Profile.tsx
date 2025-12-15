@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Navigation } from '@/components/ui/navigation';
-import { MinimalFooter } from '@/components/ui/minimal-footer';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -381,7 +380,6 @@ export default function Profile() {
           </div>
         </div>
       </div>
-      <MinimalFooter />
     </div>
   );
 }

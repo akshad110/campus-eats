@@ -16,7 +16,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Navigation } from "@/components/ui/navigation";
-import { MinimalFooter } from "@/components/ui/minimal-footer";
 import { useAuth } from "@/contexts/AuthContext";
 import { useShop } from "@/contexts/ShopContext";
 import { useToast } from "@/hooks/use-toast";
@@ -229,7 +228,7 @@ const ShopSetup = () => {
             Shop Management
           </h1>
           <p className="text-sm sm:text-base text-gray-600">
-            Create and manage your food shop on CampusEats
+            Create and manage your food shop on TakeAway
           </p>
         </div>
 
@@ -526,8 +525,6 @@ const ShopSetup = () => {
           </div>
         </div>
       </div>
-
-      <MinimalFooter />
     </div>
   );
 };

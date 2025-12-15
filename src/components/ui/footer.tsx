@@ -1,6 +1,19 @@
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   Facebook,
   Twitter,
@@ -14,13 +27,60 @@ import {
   Coffee,
   Users,
   Star,
+  MessageSquare,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export const Footer = () => {
-  const handleNewsletterSubmit = (e: React.FormEvent) => {
+  const { t } = useTranslation();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [feedbackForm, setFeedbackForm] = useState({
+    name: "",
+    email: "",
+    message: "",
+  });
+
+  const handleBrowseShopsClick = (e: React.MouseEvent) => {
+    // If user is a shopkeeper, redirect to login page to login as student
+    if (user?.role === 'shopkeeper') {
+      e.preventDefault();
+      navigate('/auth');
+    }
+    // Otherwise, let the Link component handle navigation normally
+  };
+
+  const handleFeedbackSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle newsletter subscription
-    alert("Thanks for subscribing to our newsletter!");
+    setIsSubmitting(true);
+
+    try {
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+      const response = await fetch(`${API_BASE_URL}/send-feedback`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(feedbackForm),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Failed to send feedback");
+      }
+
+      alert(t("footer.thankYouFeedback"));
+      setFeedbackForm({ name: "", email: "", message: "" });
+      setIsFeedbackOpen(false);
+    } catch (error) {
+      console.error("Error sending feedback:", error);
+      alert(t("footer.feedbackError"));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -40,19 +100,19 @@ export const Footer = () => {
           <div className="space-y-6">
             <div className="flex items-center space-x-3">
               <div className="relative">
-                <div className="h-12 w-12 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 flex items-center justify-center text-white font-bold text-xl transform hover:scale-110 transition-transform duration-300 shadow-lg hover:shadow-orange-500/50">
-                  🍽️
-                </div>
+                <img 
+                  src="/WhatsApp Image 2025-12-14 at 10.21.27 AM.jpeg" 
+                  alt="TakeAway Logo" 
+                  className="h-12 w-12 rounded-full object-cover transform hover:scale-110 transition-transform duration-300 shadow-lg hover:shadow-orange-500/50"
+                />
                 <div className="absolute inset-0 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 opacity-50 animate-ping"></div>
               </div>
               <span className="text-2xl font-bold bg-gradient-to-r from-orange-400 to-amber-400 bg-clip-text text-transparent">
-                CampusEats
+                TakeAway
               </span>
             </div>
             <p className="text-gray-300 leading-relaxed">
-              Revolutionizing campus dining with smart ordering, real-time
-              tokens, and queue-free pickup. Making student life deliciously
-              convenient.
+              {t("footer.description")}
             </p>
             <div className="flex space-x-4">
               {[Facebook, Twitter, Instagram, Linkedin].map((Icon, index) => (
@@ -70,26 +130,40 @@ export const Footer = () => {
           <div className="space-y-6">
             <h3 className="text-xl font-bold text-orange-400 flex items-center">
               <Coffee className="h-5 w-5 mr-2" />
-              Quick Links
+              {t("footer.quickLinks")}
             </h3>
             <div className="space-y-3">
               {[
-                { name: "How It Works", href: "#how-it-works" },
-                { name: "Browse Shops", href: "/home" },
-                { name: "Student Portal", href: "/auth" },
-                { name: "Shopkeeper Login", href: "/auth" },
-                { name: "Support Center", href: "#support" },
-                { name: "Campus Locations", href: "#locations" },
-              ].map((link) => (
-                <Link
-                  key={link.name}
-                  to={link.href}
-                  className="block text-gray-300 hover:text-orange-400 hover:translate-x-2 transition-all duration-300 flex items-center group"
-                >
-                  <ArrowRight className="h-4 w-4 mr-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  {link.name}
-                </Link>
-              ))}
+                { name: t("footer.howItWorks"), href: "/how-it-works" },
+                { name: t("footer.browseShops"), href: "/home", isBrowseShops: true },
+                { name: t("footer.studentPortal"), href: "/auth" },
+                { name: t("footer.shopkeeperLogin"), href: "/auth" },
+                { name: t("footer.supportCenter"), href: "#support", isSupportCenter: true },
+              ].map((link) => {
+                if (link.isSupportCenter) {
+                  return (
+                    <button
+                      key={link.name}
+                      onClick={() => setIsFeedbackOpen(true)}
+                      className="block w-full text-left text-gray-300 hover:text-orange-400 hover:translate-x-2 transition-all duration-300 flex items-center group"
+                    >
+                      <ArrowRight className="h-4 w-4 mr-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                      {link.name}
+                    </button>
+                  );
+                }
+                return (
+                  <Link
+                    key={link.name}
+                    to={link.href}
+                    onClick={link.isBrowseShops ? handleBrowseShopsClick : undefined}
+                    className="block text-gray-300 hover:text-orange-400 hover:translate-x-2 transition-all duration-300 flex items-center group"
+                  >
+                    <ArrowRight className="h-4 w-4 mr-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    {link.name}
+                  </Link>
+                );
+              })}
             </div>
           </div>
 
@@ -97,16 +171,16 @@ export const Footer = () => {
           <div className="space-y-6">
             <h3 className="text-xl font-bold text-orange-400 flex items-center">
               <Star className="h-5 w-5 mr-2" />
-              Popular Categories
+              {t("footer.popularCategories")}
             </h3>
             <div className="space-y-3">
               {[
-                "Italian Cuisine",
-                "Healthy Options",
-                "Fast Food",
-                "Asian Delights",
-                "Coffee & Beverages",
-                "Quick Snacks",
+                t("footer.italianCuisine"),
+                t("footer.healthyOptions"),
+                t("footer.fastFood"),
+                t("footer.asianDelights"),
+                t("footer.coffeeBeverages"),
+                t("footer.quickSnacks"),
               ].map((category) => (
                 <div
                   key={category}
@@ -119,42 +193,111 @@ export const Footer = () => {
             </div>
           </div>
 
-          {/* Newsletter & Contact */}
+          {/* Feedback & Contact */}
           <div className="space-y-6">
             <h3 className="text-xl font-bold text-orange-400 flex items-center">
               <Mail className="h-5 w-5 mr-2" />
-              Stay Connected
+              {t("footer.stayConnected")}
             </h3>
             <p className="text-gray-300">
-              Get updates on new shops, special offers, and campus dining news.
+              {t("footer.feedbackPrompt")}
             </p>
 
-            <form onSubmit={handleNewsletterSubmit} className="space-y-3">
-              <div className="relative">
-                <Input
-                  type="email"
-                  placeholder="Enter your email"
-                  className="bg-gray-800 border-gray-700 text-white placeholder-gray-400 focus:border-orange-500 focus:ring-orange-500 pr-24"
-                  required
-                />
+            <Dialog open={isFeedbackOpen} onOpenChange={setIsFeedbackOpen}>
+              <DialogTrigger asChild>
                 <Button
-                  type="submit"
-                  size="sm"
-                  className="absolute right-1 top-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 transform hover:scale-105 transition-all duration-300"
+                  className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white transform hover:scale-105 transition-all duration-300"
                 >
-                  Subscribe
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  {t("footer.sendFeedback")}
                 </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[500px] bg-white">
+                <DialogHeader>
+                  <DialogTitle className="text-2xl font-bold text-gray-900">
+                    {t("footer.feedbackTitle")}
+                  </DialogTitle>
+                  <DialogDescription className="text-gray-600">
+                    {t("footer.feedbackDescription")}
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleFeedbackSubmit} className="space-y-4 mt-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name" className="text-gray-700">
+                      {t("footer.name")} *
+                    </Label>
+                    <Input
+                      id="name"
+                      type="text"
+                      placeholder={t("footer.namePlaceholder")}
+                      value={feedbackForm.name}
+                      onChange={(e) =>
+                        setFeedbackForm({ ...feedbackForm, name: e.target.value })
+                      }
+                      className="bg-white border-gray-300 focus:border-orange-500 focus:ring-orange-500"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email" className="text-gray-700">
+                      {t("footer.email")} *
+                    </Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder={t("footer.emailPlaceholder")}
+                      value={feedbackForm.email}
+                      onChange={(e) =>
+                        setFeedbackForm({ ...feedbackForm, email: e.target.value })
+                      }
+                      className="bg-white border-gray-300 focus:border-orange-500 focus:ring-orange-500"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="message" className="text-gray-700">
+                      {t("footer.message")} *
+                    </Label>
+                    <Textarea
+                      id="message"
+                      placeholder={t("footer.messagePlaceholder")}
+                      value={feedbackForm.message}
+                      onChange={(e) =>
+                        setFeedbackForm({ ...feedbackForm, message: e.target.value })
+                      }
+                      className="bg-white border-gray-300 focus:border-orange-500 focus:ring-orange-500 min-h-[120px]"
+                      required
+                    />
               </div>
+                  <DialogFooter className="mt-6">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsFeedbackOpen(false)}
+                      disabled={isSubmitting}
+                    >
+                      {t("footer.cancel")}
+                    </Button>
+                    <Button
+                      type="submit"
+                      className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white"
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? t("footer.sending") : t("footer.submit")}
+                    </Button>
+                  </DialogFooter>
             </form>
+              </DialogContent>
+            </Dialog>
 
             <div className="space-y-3">
               <div className="flex items-center text-gray-300 hover:text-orange-400 transition-colors duration-300">
                 <Phone className="h-4 w-4 mr-3 text-orange-500" />
-                <span>+1 (555) 123-4567</span>
+                <span>+91 7875538084</span>
               </div>
               <div className="flex items-center text-gray-300 hover:text-orange-400 transition-colors duration-300">
                 <Mail className="h-4 w-4 mr-3 text-orange-500" />
-                <span>support@campuseats.com</span>
+                <span>akshadvengurlekar35@gmail.com</span>
               </div>
               <div className="flex items-center text-gray-300 hover:text-orange-400 transition-colors duration-300">
                 <MapPin className="h-4 w-4 mr-3 text-orange-500" />
@@ -168,10 +311,10 @@ export const Footer = () => {
         <div className="mt-16 pt-8 border-t border-gray-700">
           <div className="grid md:grid-cols-4 gap-8 text-center">
             {[
-              { number: "5,000+", label: "Happy Students", icon: Users },
-              { number: "30+", label: "Campus Shops", icon: Coffee },
-              { number: "50K+", label: "Orders Delivered", icon: Heart },
-              { number: "4.9", label: "Average Rating", icon: Star },
+              { number: "5,000+", label: t("footer.happyStudents"), icon: Users },
+              { number: "30+", label: t("footer.campusShops"), icon: Coffee },
+              { number: "50K+", label: t("footer.ordersDelivered"), icon: Heart },
+              { number: "4.9", label: t("footer.averageRating"), icon: Star },
             ].map((stat, index) => (
               <div
                 key={index}
@@ -192,41 +335,35 @@ export const Footer = () => {
         {/* Bottom section */}
         <div className="mt-12 pt-8 border-t border-gray-700">
           <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-            <div className="flex items-center text-gray-400 text-sm">
-              <span>Made with</span>
-              <Heart className="h-4 w-4 mx-2 text-red-500 animate-pulse" />
-              <span>for hungry students everywhere</span>
-            </div>
-
             <div className="flex flex-wrap items-center space-x-6 text-sm text-gray-400">
               <Link
                 to="/privacy"
                 className="hover:text-orange-400 transition-colors duration-300"
               >
-                Privacy Policy
+                {t("footer.privacyPolicy")}
               </Link>
               <Link
                 to="/terms"
                 className="hover:text-orange-400 transition-colors duration-300"
               >
-                Terms of Service
+                {t("footer.termsOfService")}
               </Link>
               <Link
                 to="/cookies"
                 className="hover:text-orange-400 transition-colors duration-300"
               >
-                Cookie Policy
+                {t("footer.cookiePolicy")}
               </Link>
               <Link
                 to="/accessibility"
                 className="hover:text-orange-400 transition-colors duration-300"
               >
-                Accessibility
+                {t("footer.accessibility")}
               </Link>
             </div>
 
             <div className="text-gray-400 text-sm">
-              © 2024 CampusEats. All rights reserved.
+              {t("footer.copyright")}
             </div>
           </div>
         </div>

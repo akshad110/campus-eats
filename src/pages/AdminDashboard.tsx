@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Navigation } from "@/components/ui/navigation";
-import { MinimalFooter } from "@/components/ui/minimal-footer";
 import { OrderApproval } from "@/components/OrderApproval";
 import { useAuth } from "@/contexts/AuthContext";
 import { ApiService } from "@/lib/api";
@@ -113,7 +112,11 @@ const AdminDashboard = () => {
     
     try {
       const orders = await ApiService.getOrdersByShop(selectedShop.id);
-      const activeTokensCount = orders.filter((o: any) => ['approved', 'preparing', 'ready'].includes(o.status)).length;
+      // Only count orders with payment completed (not just approved)
+      const activeTokensCount = orders.filter((o: any) => 
+        ['approved', 'preparing', 'ready'].includes(o.status) && 
+        o.payment_status === 'completed'
+      ).length;
       
       console.log('🎫 updateActiveTokensCount:');
       console.log('  - Shop ID:', selectedShop.id);
@@ -122,6 +125,7 @@ const AdminDashboard = () => {
       console.log('    * approved:', orders.filter((o: any) => o.status === 'approved').length);
       console.log('    * preparing:', orders.filter((o: any) => o.status === 'preparing').length);
       console.log('    * ready:', orders.filter((o: any) => o.status === 'ready').length);
+      console.log('  - Orders with payment completed:', orders.filter((o: any) => o.payment_status === 'completed').length);
       console.log('  - Active Tokens count:', activeTokensCount);
       
       setActiveTokens(activeTokensCount);
@@ -286,8 +290,13 @@ const AdminDashboard = () => {
     setActiveTokens(prevCount => {
       const currentOrder = activeShopOrders.find(o => o.id === orderId);
       if (!currentOrder) return prevCount;
-      const wasActive = ["approved", "preparing", "ready"].includes(currentOrder.status);
-      const willBeActive = ["approved", "preparing", "ready"].includes(status);
+      // Only count as active if payment is completed
+      const wasActive = ["approved", "preparing", "ready"].includes(currentOrder.status) && currentOrder.payment_status === 'completed';
+      // For status updates: preparing/ready means payment is already completed, approved needs payment check
+      // We'll rely on the backend to update the count correctly via socket events
+      // For now, just check if the new status would be active with payment completed
+      const willBeActive = ["approved", "preparing", "ready"].includes(status) && 
+        (status === 'preparing' || status === 'ready' ? true : currentOrder.payment_status === 'completed');
       if (wasActive && !willBeActive) {
         return prevCount - 1;
       } else if (!wasActive && willBeActive) {
@@ -336,6 +345,7 @@ const AdminDashboard = () => {
     },
   ];
 
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "preparing":
@@ -368,12 +378,16 @@ const AdminDashboard = () => {
       <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-6 md:py-8">
         {/* Welcome Header */}
         <div className="mb-6 sm:mb-8">
+          <div className="flex items-center justify-between">
+            <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
             Welcome back, {user?.name}! 👨‍🍳
           </h1>
           <p className="text-sm sm:text-base text-gray-600">
             Manage your shop and track orders in real-time
           </p>
+            </div>
+          </div>
         </div>
 
         {/* No Shops Warning */}
@@ -556,10 +570,12 @@ const AdminDashboard = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
+                <div>
                 <OrderApproval
                   shopId={selectedShop.id}
                   onOrderUpdate={updateStats}
                 />
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -723,7 +739,7 @@ const AdminDashboard = () => {
                                 <Clock className="h-3 w-3 mr-1" />
                                 {new Date(order.createdAt).toLocaleTimeString()}
                               </span>
-                              <span>${Number(order.totalAmount).toFixed(2)}</span>
+                              <span>₹{Number(order.totalAmount).toFixed(2)}</span>
                               <Badge className="bg-blue-100 text-blue-800 text-xs">
                                 {order.status.replace(/_/g, ' ').toUpperCase()}
                               </Badge>
@@ -864,8 +880,6 @@ const AdminDashboard = () => {
         )}
 
       </div>
-
-      <MinimalFooter />
     </div>
   );
 };

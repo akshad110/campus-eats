@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Navigation } from "@/components/ui/navigation";
-import { ModernFooter } from "@/components/ui/modern-footer";
 import { useAuth } from "@/contexts/AuthContext";
 import { useShop } from "@/contexts/ShopContext";
 import { useToast } from "@/hooks/use-toast";
@@ -28,10 +27,12 @@ import {
 } from "lucide-react";
 import { io as socketIOClient, Socket } from "socket.io-client";
 import { ActiveOrders } from "@/components/ActiveOrders";
+import { useTranslation } from "react-i18next";
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:3001";
 
 const UserDashboard = () => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { shops, loading, refreshShops } = useShop();
   const { toast } = useToast();
@@ -68,6 +69,12 @@ const UserDashboard = () => {
         if (data.userId === user?.id) {
           refreshShops();
         }
+      });
+
+      // WebSocket: Listen for token count updates
+      newSocket.on("shop_tokens_update", (data: { shopId: string; activeTokens: number }) => {
+        console.log('🎫 Received token count update:', data);
+        refreshShops(); // Refresh shops to get updated token counts
       });
     }
 
@@ -183,6 +190,7 @@ const UserDashboard = () => {
     navigate(`/shops/${shopId}`);
   };
 
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50">
       <Navigation />
@@ -190,12 +198,16 @@ const UserDashboard = () => {
       <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-6 md:py-8">
         {/* Welcome Header */}
         <div className="mb-6 sm:mb-8">
+          <div className="flex items-center justify-between">
+            <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
-            Welcome back, {user?.name}! 👋
+                {t("userDashboard.welcomeBack", { name: user?.name })} 👋
           </h1>
           <p className="text-sm sm:text-base text-gray-600">
-            Ready to order from your favorite campus shops?
+                {t("userDashboard.readyToOrder")}
           </p>
+            </div>
+          </div>
         </div>
 
         {/* Search Bar */}
@@ -206,7 +218,7 @@ const UserDashboard = () => {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <Input
                   type="text"
-                  placeholder="Search for shops, food items..."
+                  placeholder={t("userDashboard.searchPlaceholder")}
                   value={searchQuery}
                   onChange={handleSearch}
                   className="pl-10 pr-4 py-2 sm:py-3 border-gray-200 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-300 text-sm sm:text-base"
@@ -221,7 +233,7 @@ const UserDashboard = () => {
                 >
                   {categories.map((category) => (
                     <option key={category} value={category}>
-                      {category === "all" ? "All Categories" : category}
+                      {category === "all" ? t("common.allCategories") : category}
                     </option>
                   ))}
                 </select>
@@ -238,11 +250,10 @@ const UserDashboard = () => {
                   <AlertCircle className="h-5 w-5 text-yellow-600 mr-2" />
                   <div>
                     <h3 className="font-medium text-yellow-800">
-                      No Shops Available
+                      {t("userDashboard.noShopsAvailable", { defaultValue: "No Shops Available" })}
                     </h3>
                     <p className="text-sm text-yellow-700">
-                      Shops are being loaded or none have been created yet. Try
-                      refreshing to see newly created shops.
+                      {t("userDashboard.noShopsDesc", { defaultValue: "Shops are being loaded or none have been created yet. Try refreshing to see newly created shops." })}
                     </p>
                   </div>
                 </div>
@@ -252,7 +263,7 @@ const UserDashboard = () => {
           size="sm"
           className="border-yellow-300 text-yellow-700 hover:bg-yellow-100"
         >
-          Refresh Shops
+          {t("common.refresh")}
         </Button>
               </div>
             </CardContent>
@@ -266,9 +277,9 @@ const UserDashboard = () => {
           <div className="mb-12">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-gray-900 flex items-center">
-                🍽️ All Campus Shops
+                🍽️ {t("userDashboard.allShops", { defaultValue: "All Campus Shops" })}
                 <Badge className="ml-3 bg-gray-100 text-gray-600">
-                  {filteredShops.length} shops
+                  {filteredShops.length} {t("userDashboard.shops", { defaultValue: "shops" })}
                 </Badge>
               </h2>
               {/* Remove the Refresh Shops button from the home page */}
@@ -278,7 +289,7 @@ const UserDashboard = () => {
               {filteredShops.map((shop, index) => (
                 <Card
                   key={`all-${shop.id}`}
-                  className={`border-0 shadow-lg hover:shadow-2xl hover:shadow-orange-500/20 transition-all duration-500 bg-white/80 backdrop-blur-sm group transform hover:scale-105 hover:-translate-y-2 ${
+                  className={`border-0 shadow-lg hover:shadow-2xl hover:shadow-orange-500/20 transition-all duration-500 bg-white/80 backdrop-blur-sm group transform hover:scale-105 hover:-translate-y-2 hover:bg-orange-50/80 ${
                     animateCards ? "animate-slide-up" : ""
                   } ${shop.closed ? "opacity-50" : ""}`}
                   style={{ animationDelay: `${(index + 3) * 100}ms` }}
@@ -290,7 +301,7 @@ const UserDashboard = () => {
                     </div>
                   )}
                   <CardHeader className="pb-3 sm:pb-4 relative overflow-hidden p-4 sm:p-6">
-                    <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-amber-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-amber-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                     <div className="relative flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         <CardTitle className="text-base sm:text-lg font-semibold text-gray-900 group-hover:text-orange-600 transition-colors flex items-center flex-wrap gap-1">
@@ -309,38 +320,41 @@ const UserDashboard = () => {
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent className="pt-0 p-4 sm:p-6">
-                    <div className="flex items-center text-sm text-gray-600 mb-2">
-                      <Clock className="mr-1" size={14} />
-                      <span>{shop.estimatedWaitTime} min wait</span>
-                    </div>
-                    {/* Token Section */}
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-sm font-medium">Tokens:</span>
-                      <span className="bg-orange-100 text-orange-700 px-2 py-1 rounded">{typeof shop.activeTokens === "number" ? shop.activeTokens : 0}</span>
-                    </div>
-                    <div className="space-y-3">
-                      {/* Shop rating section in shop card */}
-                      <div className="flex items-center text-gray-600">
-                        <Star className="h-4 w-4 mr-1 text-yellow-500 group-hover:animate-bounce" />
-                        {shopRatings[shop.id]?.avg ? shopRatings[shop.id].avg.toFixed(1) : '—'}
+                  <CardContent className="pt-0 p-4 sm:p-6 relative">
+                    <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-amber-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-b-lg pointer-events-none"></div>
+                    <div className="relative z-10">
+                      <div className="flex items-center text-sm text-gray-600 mb-2">
+                        <Clock className="mr-1" size={14} />
+                        <span>{shop.estimatedWaitTime} {t("common.minWait")}</span>
                       </div>
-                      <Button
-                        className={`w-full transform group-hover:scale-105 transition-all duration-300 ${
-                          shop.closed
-                            ? "bg-gray-300 text-gray-400 cursor-not-allowed opacity-60"
-                            : "bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 group-hover:shadow-lg group-hover:shadow-orange-500/50"
-                        }`}
-                        disabled={shop.closed || shop.crowdLevel === "high"}
-                        onClick={() => handleViewMenu(shop.id)}
-                      >
-                        <ShoppingCart className="h-4 w-4 mr-2 group-hover:animate-bounce" />
-                        {shop.closed
-                          ? "Unavailable"
-                          : shop.crowdLevel === "high"
-                          ? "Very Busy"
-                          : "View Menu"}
-                      </Button>
+                      {/* Token Section */}
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-sm font-medium">Active Tokens:</span>
+                        <span className="bg-orange-100 text-orange-700 px-2 py-1 rounded">{typeof shop.activeTokens === "number" ? shop.activeTokens : 0}</span>
+                      </div>
+                      <div className="space-y-3">
+                        {/* Shop rating section in shop card */}
+                        <div className="flex items-center text-gray-600">
+                          <Star className="h-4 w-4 mr-1 text-yellow-500 group-hover:animate-bounce" />
+                          {shopRatings[shop.id]?.avg ? shopRatings[shop.id].avg.toFixed(1) : '—'}
+                        </div>
+                        <Button
+                          className={`w-full transform group-hover:scale-105 transition-all duration-300 ${
+                            shop.closed
+                              ? "bg-gray-300 text-gray-400 cursor-not-allowed opacity-60"
+                              : "bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 group-hover:shadow-lg group-hover:shadow-orange-500/50"
+                          }`}
+                          disabled={shop.closed || shop.crowdLevel === "high"}
+                          onClick={() => handleViewMenu(shop.id)}
+                        >
+                          <ShoppingCart className="h-4 w-4 mr-2 group-hover:animate-bounce" />
+                          {shop.closed
+                            ? "Unavailable"
+                            : shop.crowdLevel === "high"
+                            ? "Very Busy"
+                            : t("common.viewMenu")}
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -351,20 +365,20 @@ const UserDashboard = () => {
               <div className="text-center py-12">
                 <Search className="h-16 w-16 text-gray-300 mx-auto mb-4" />
                 <h3 className="text-xl font-semibold text-gray-600 mb-2">
-                  No shops found
+                  {t("userDashboard.noShopsFound")}
                 </h3>
                 <p className="text-gray-500">
-                  Try adjusting your search or filter criteria
+                  {t("userDashboard.tryAdjustingSearch", { defaultValue: "Try adjusting your search or filter criteria" })}
                 </p>
               </div>
             )}
           </div>
         )}
 
+        <div>
         <ActiveOrders socket={socket} />
+        </div>
       </div>
-
-      <ModernFooter />
     </div>
   );
 };

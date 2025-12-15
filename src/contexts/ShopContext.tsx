@@ -9,6 +9,7 @@ import React, {
 import { Shop } from "@/lib/types";
 import { ApiService } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { io } from "socket.io-client";
 
 interface ShopContextType {
   shops: Shop[];
@@ -98,6 +99,27 @@ export const ShopProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     fetchShops();
   }, [fetchShops]);
+
+  // Listen for real-time token count updates
+  useEffect(() => {
+    const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001';
+    const socket = io(SOCKET_URL);
+
+    socket.on('shop_tokens_update', (data: { shopId: string; activeTokens: number }) => {
+      console.log('🎫 Received token count update:', data);
+      setShops(prevShops => 
+        prevShops.map(shop => 
+          shop.id === data.shopId 
+            ? { ...shop, activeTokens: data.activeTokens }
+            : shop
+        )
+      );
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
 
   const refreshShops = useCallback(async () => {
     await fetchShops();

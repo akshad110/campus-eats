@@ -184,9 +184,14 @@ const AdminAnalytics = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-green-700">
-                  {analytics.avgFulfillment !== null && analytics.avgFulfillment !== undefined
+                  {analytics.avgFulfillment !== null && analytics.avgFulfillment !== undefined && !isNaN(Number(analytics.avgFulfillment)) && Number(analytics.avgFulfillment) > 0
                     ? `${Number(analytics.avgFulfillment).toFixed(1)} min`
-                    : 'N/A'}
+                    : '0 min'}
+                </div>
+                <div className="text-gray-500 text-sm mt-2">
+                  {analytics.avgFulfillment === null || analytics.avgFulfillment === undefined || isNaN(Number(analytics.avgFulfillment)) || Number(analytics.avgFulfillment) === 0
+                    ? 'No fulfilled orders yet'
+                    : 'Based on completed orders'}
                 </div>
               </CardContent>
             </Card>

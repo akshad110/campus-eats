@@ -25,7 +25,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Navigation } from "@/components/ui/navigation";
-import { MinimalFooter } from "@/components/ui/minimal-footer";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { ApiService } from "@/lib/api";
@@ -662,8 +661,6 @@ const MenuManagement = () => {
           </Card>
         )}
       </div>
-
-      <MinimalFooter />
     </div>
   );
 };

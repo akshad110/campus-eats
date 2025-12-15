@@ -5,12 +5,13 @@ import { Order } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Clock, CookingPot, ShoppingBag, XCircle, History, CreditCard } from "lucide-react";
+import { CheckCircle, Clock, CookingPot, ShoppingBag, XCircle, History, CreditCard, FileText, Truck } from "lucide-react";
 import { Socket } from "socket.io-client";
 import { QRPaymentScanner } from './QRPaymentScanner';
 import { useShop } from "@/contexts/ShopContext";
 import React from "react";
 import { useRef } from 'react';
+import { PaymentApprovedCard } from './PaymentApprovedCard';
 
 function getTimeLeft(approvedAt: string) {
   const FIVE_MIN = 5 * 60 * 1000;
@@ -36,43 +37,115 @@ function Timer({ approvedAt }: { approvedAt: string }) {
 }
 
 
-const OrderStatusStepper = ({ status }: { status: Order["status"] }) => {
+const OrderStatusStepper = ({ status, paymentStatus }: { status: Order["status"], paymentStatus?: Order["paymentStatus"] }) => {
   const steps = [
-    { name: "Pending", status: "pending_approval", icon: <Clock size={18} /> },
-    { name: "Approved", status: "approved", icon: <CheckCircle size={18} /> },
-    { name: "Preparing", status: "preparing", icon: <CookingPot size={18} /> },
-    { name: "Ready", status: "ready", icon: <ShoppingBag size={18} /> },
-    { name: "Collected", status: "fulfilled", icon: <CheckCircle size={18} /> },
+    { 
+      name: "Pending", 
+      subtitle: "Order created",
+      status: "pending_approval", 
+      icon: FileText,
+    },
+    { 
+      name: "Approved", 
+      subtitle: "Order approved",
+      status: "approved", 
+      icon: CheckCircle,
+    },
+    { 
+      name: "Preparing", 
+      subtitle: "Food preparing",
+      status: "preparing", 
+      icon: CookingPot,
+    },
+    { 
+      name: "Ready", 
+      subtitle: "Ready for pickup",
+      status: "ready", 
+      icon: ShoppingBag,
+    },
+    { 
+      name: "Collected", 
+      subtitle: "Order collected",
+      status: "fulfilled", 
+      icon: CheckCircle,
+    },
   ];
 
-  const currentStepIndex = steps.findIndex((step) => step.status === status);
+  // Determine current step index based on status and payment
+  const getCurrentStepIndex = () => {
+    if (status === "fulfilled") return 4; // Collected
+    if (status === "ready") return 3; // Ready
+    if (status === "preparing") return 2; // Preparing
+    if (status === "approved") return 1; // Approved
+    return 0; // Pending
+  };
+
+  const currentStepIndex = getCurrentStepIndex();
 
   return (
-    <div className="w-full max-w-sm pt-2">
-      <div className="relative h-1.5 bg-gray-200 rounded-full">
+    <div className="w-full py-3">
+      <div className="flex items-start justify-between relative px-1">
+        {/* Connecting lines - positioned at the top of icons */}
+        <div className="absolute top-5 left-8 right-8 h-0.5 bg-gray-200 -z-10">
         <div
-          className="absolute top-0 left-0 h-full bg-green-500 rounded-full transition-all duration-500 ease-out"
-          style={{ width: `${(currentStepIndex / (steps.length - 1)) * 100}%` }}
+            className="absolute top-0 left-0 h-full bg-orange-500 transition-all duration-500 ease-out"
+            style={{ width: currentStepIndex > 0 ? `${(currentStepIndex / (steps.length - 1)) * 100}%` : '0%' }}
         ></div>
-        <div className="absolute top-1/2 -translate-y-1/2 w-full flex justify-between">
-          {steps.map((step, index) => (
+        </div>
+
+        {steps.map((step, index) => {
+          const StepIcon = step.icon;
+          const isCompleted = index < currentStepIndex;
+          const isCurrent = index === currentStepIndex;
+          const isActive = isCompleted || isCurrent;
+
+          return (
             <div
               key={step.name}
-              className={`w-5 h-5 rounded-full flex items-center justify-center transition-all duration-500 ${
-                index <= currentStepIndex ? "bg-green-500" : "bg-gray-300"
+              className={`flex flex-col items-center flex-1 relative ${
+                isCurrent ? 'z-10' : ''
               }`}
             >
-               <div className="w-2 h-2 bg-white rounded-full"></div>
+              {/* Step container with border for current step */}
+              <div
+                className={`flex flex-col items-center transition-all duration-300 rounded-lg p-2 ${
+                  isCurrent
+                    ? 'border-2 border-orange-500 bg-orange-50/40 shadow-md'
+                    : 'border-2 border-transparent'
+                }`}
+              >
+                {/* Icon square - orange for active, gray for inactive */}
+                <div
+                  className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-300 ${
+                    isActive
+                      ? 'bg-orange-500 text-white shadow-md'
+                      : 'bg-gray-200 text-gray-400'
+                  }`}
+                >
+                  <StepIcon size={20} strokeWidth={2} />
+                </div>
+
+                {/* Step title and subtitle */}
+                <div className="mt-2 text-center">
+                  <p
+                    className={`text-xs font-semibold transition-colors ${
+                      isActive ? 'text-gray-900' : 'text-gray-400'
+              }`}
+            >
+                    {step.name}
+                  </p>
+                  <p
+                    className={`text-[10px] mt-0.5 transition-colors ${
+                      isActive ? 'text-gray-600' : 'text-gray-400'
+                    }`}
+                  >
+                    {step.subtitle}
+                  </p>
             </div>
-          ))}
         </div>
       </div>
-      <div className="flex justify-between mt-2">
-        {steps.map((step) => (
-          <p key={step.name} className="text-xs text-gray-500 w-1/5 text-center">
-            {step.name}
-          </p>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -98,6 +171,8 @@ export const ActiveOrders = ({ socket }: { socket: Socket | null }) => {
   const [debugOrders, setDebugOrders] = useState<Order[] | null>(null);
   const [feedbackOrderId, setFeedbackOrderId] = useState<string | null>(null);
   const [rating, setRating] = useState(0);
+  const [paymentApprovedCardOpen, setPaymentApprovedCardOpen] = useState<{ [orderId: string]: boolean }>({});
+  const [paymentApprovedShown, setPaymentApprovedShown] = useState<Set<string>>(new Set());
   const [feedback, setFeedback] = useState("");
   const [ratingCounts, setRatingCounts] = useState<{ [orderId: string]: number }>({});
   const [feedbackSubmitted, setFeedbackSubmitted] = useState<{ [orderId: string]: boolean }>({});
@@ -173,6 +248,19 @@ export const ActiveOrders = ({ socket }: { socket: Socket | null }) => {
       socket.on("order_status_update", (data) => {
         if (data.userId === user?.id) {
           fetchOrders();
+          // Show payment approved card ONLY when payment is first completed and order is preparing
+          // This happens in real-time when shopkeeper approves payment
+          if (data.order && data.order.payment_status === 'completed' && 
+              (data.order.status === 'preparing' || data.status === 'preparing')) {
+            const orderId = data.order.id || data.orderId;
+            if (orderId && !paymentApprovedShown.has(orderId)) {
+              // Small delay for smooth animation
+              setTimeout(() => {
+                setPaymentApprovedCardOpen(prev => ({ ...prev, [orderId]: true }));
+                setPaymentApprovedShown(prev => new Set(prev).add(orderId));
+              }, 500);
+            }
+          }
         }
       });
     }
@@ -265,6 +353,7 @@ export const ActiveOrders = ({ socket }: { socket: Socket | null }) => {
         </div>
       ) : (
         <>
+          <div className="space-y-4">
           {activeOrders.map((order, idx) => {
             // Find token_ready notification for this order
             const tokenNotif = notifications.find(
@@ -275,35 +364,66 @@ export const ActiveOrders = ({ socket }: { socket: Socket | null }) => {
               (n) => n.title && n.title.toLowerCase().includes('ready for pickup') && n.metadata && n.metadata.order_id === order.id
             );
             return (
-              <Card key={order.id} className="bg-gray-50 shadow-sm border-l-4 border-gray-300">
+                <Card 
+                  key={order.id} 
+                  className="bg-white shadow-md border border-gray-200 hover:shadow-lg transition-all duration-300 hover:border-orange-300"
+                >
                 <CardContent className="p-4">
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-4">
-                      <div className="bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-full w-10 h-10 flex items-center justify-center font-bold text-sm">
+                    <div className="flex items-start gap-3">
+                      {/* Order number badge */}
+                      <div className="bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-full w-12 h-12 flex items-center justify-center font-bold text-sm flex-shrink-0">
                         #{order.orderNumber || '-'}
                       </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Order #{order.orderNumber || order.id} (from {new Date(order.createdAt).toLocaleDateString()})</p>
-                        <h3 className="text-md font-semibold text-gray-600">
+                      
+                      <div className="flex-1 min-w-0">
+                        {/* Status indicator */}
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                            order.status === 'preparing' ? 'bg-orange-500 animate-pulse' :
+                            order.status === 'ready' ? 'bg-green-500' :
+                            order.status === 'approved' && order.paymentStatus === 'completed' ? 'bg-blue-500' :
+                            'bg-gray-400'
+                          }`}></div>
+                          <span className="text-xs font-medium text-gray-700">
+                            {order.status === 'preparing' ? 'Preparing your order' :
+                             order.status === 'ready' ? 'Ready for pickup' :
+                             order.status === 'approved' && order.paymentStatus === 'completed' ? 'Payment confirmed' :
+                             order.status === 'approved' ? 'Waiting for payment' :
+                             order.status === 'pending_approval' ? 'Waiting for approval' :
+                             'Processing'}
+                          </span>
+                          {/* Status badge */}
+                          <Badge className="ml-auto text-[10px] px-2 py-0.5 bg-orange-100 text-orange-700 border-orange-200">
+                            {order.status.replace(/_/g, ' ')}
+                          </Badge>
+                        </div>
+                        
+                        <p className="text-xs text-gray-500 mb-1">Order #{order.orderNumber || order.id.slice(-8)}</p>
+                        <h3 className="text-sm font-semibold text-gray-700 mb-2.5">
                           {order.items.map((item) => `${item.menuItem?.name || "Unknown Item"} x${item.quantity}`).join(", ")}
                         </h3>
-                        <OrderStatusStepper status={order.status} />
+                        <OrderStatusStepper status={order.status} paymentStatus={order.paymentStatus} />
                         {/* Countdown timer for approved orders */}
                         {order.status === 'approved' && order.paymentStatus !== 'completed' && order.updatedAt && (
-                          <div className="my-2">
+                          <div className="mt-2 mb-3">
                             <Timer approvedAt={order.updatedAt} />
-                            <div className="text-xs text-gray-500">If not paid in 5 minutes, your order will be cancelled automatically.</div>
+                            <div className="text-xs text-gray-500 mt-1">If not paid in 5 minutes, your order will be cancelled automatically.</div>
                           </div>
                         )}
                         {/* Show only one token card per order */}
                         {order.status === 'preparing' ? (
-                          <div className="my-4">
-                            <div className="bg-orange-50 border-l-4 border-orange-400 rounded-lg p-4 shadow">
-                              <div className="font-bold text-orange-700 text-lg mb-1">
+                          <div 
+                            className="mt-3 cursor-pointer transform transition-all duration-200 hover:scale-[1.01] inline-block"
+                            onClick={() => {
+                              setPaymentApprovedCardOpen(prev => ({ ...prev, [order.id]: true }));
+                            }}
+                          >
+                            <div className="bg-orange-50 border-l-4 border-orange-400 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow max-w-xs">
+                              <div className="font-bold text-orange-700 text-sm mb-1">
                                 🎟️ Your Token: {order.tokenNumber || (tokenNotif && tokenNotif.metadata?.token_number) || 'N/A'}
                               </div>
-                              <div className="text-gray-700 mb-1">
-                                Estimated preparation time: {order.preparationTime ? order.preparationTime : 'N/A'} minutes
+                              <div className="text-gray-700 text-xs mb-1">
+                                Estimated preparation time: {order.preparationTime || 15} minutes
                               </div>
                               <div className="text-xs text-gray-500">
                                 Estimated pickup: {
@@ -314,34 +434,37 @@ export const ActiveOrders = ({ socket }: { socket: Socket | null }) => {
                                         : 'N/A')
                                 }
                               </div>
+                              <div className="text-xs text-orange-600 mt-1.5 font-medium flex items-center gap-1">
+                                👆 Click to view detailed information
+                              </div>
                             </div>
                           </div>
                         ) : tokenNotif ? (
-                          <div className="my-4">
-                            <div className="bg-orange-50 border-l-4 border-orange-400 rounded-lg p-4 shadow">
-                              <div className="font-bold text-orange-700 text-lg mb-1">🎟️ Your Token: {tokenNotif.metadata?.token_number || order.tokenNumber || 'N/A'}</div>
-                              <div className="text-gray-700 mb-1">Your food will take approximately {order.preparationTime ? order.preparationTime : 'N/A'} minutes to prepare.</div>
+                          <div className="mt-3 inline-block">
+                            <div className="bg-orange-50 border-l-4 border-orange-400 rounded-lg p-3 shadow-sm max-w-xs">
+                              <div className="font-bold text-orange-700 text-sm mb-1">🎟️ Your Token: {tokenNotif.metadata?.token_number || order.tokenNumber || 'N/A'}</div>
+                              <div className="text-gray-700 text-xs mb-1">Your food will take approximately {order.preparationTime || 15} minutes to prepare.</div>
                               <div className="text-xs text-gray-500">Token issued at: {tokenNotif.metadata?.estimated_pickup_time ? new Date(tokenNotif.metadata?.estimated_pickup_time).toLocaleTimeString() : (order.updatedAt && order.preparationTime ? new Date(new Date(order.updatedAt).getTime() + order.preparationTime * 60000).toLocaleTimeString() : 'N/A')}</div>
                             </div>
                           </div>
                         ) : null}
                         {/* Show ready card when order is ready */}
                         {order.status === 'ready' && readyNotif && (
-                          <div className="my-4">
-                            <div className="bg-green-50 border-l-4 border-green-400 rounded-lg p-4 shadow">
-                              <div className="font-bold text-green-700 text-lg mb-1">🍽️ Food Ready!</div>
-                              <div className="text-gray-700 mb-1">Your food is ready! Please collect it within 30 minutes.</div>
+                          <div className="mt-3">
+                            <div className="bg-green-50 border-l-4 border-green-400 rounded-lg p-3 shadow-sm">
+                              <div className="font-bold text-green-700 text-sm mb-1">🍽️ Food Ready!</div>
+                              <div className="text-gray-700 text-xs mb-1">Your food is ready! Please collect it within 30 minutes.</div>
                               <div className="text-xs text-gray-500">Ready at: {new Date(readyNotif.created_at).toLocaleTimeString()}</div>
                             </div>
                           </div>
                         )}
                         {/* Show Pay Now button or waiting message */}
                         {order.status === 'approved' && order.paymentStatus !== 'completed' && (
-                          <div className="mt-4">
+                          <div className="mt-3">
                             {/* Show waiting message if payment screenshot exists and payment is pending */}
                             {order.paymentStatus === 'pending' && (order as any).payment_screenshot ? (
-                              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                                <p className="text-sm text-yellow-800 font-semibold">
+                              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2.5">
+                                <p className="text-xs text-yellow-800 font-semibold">
                                   ⏳ Waiting for shopkeeper to approve your payment
                                 </p>
                               </div>
@@ -349,7 +472,7 @@ export const ActiveOrders = ({ socket }: { socket: Socket | null }) => {
                               /* Show Pay Now button if payment is not pending and not completed */
                               /* This handles: null, undefined, or any other status */
                               <button
-                                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-semibold shadow transition-colors"
+                                className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded text-sm font-semibold shadow transition-colors w-full"
                                 onClick={async () => {
                                   // Fetch shop UPI ID
                                   try {
@@ -378,18 +501,43 @@ export const ActiveOrders = ({ socket }: { socket: Socket | null }) => {
                           </div>
                         )}
                       </div>
-                    </div>
-                    <Badge variant={order.status === 'cancelled' ? 'destructive' : 'default'} className={order.status === 'fulfilled' ? 'bg-green-100 text-green-800' : ''}>
-                      {order.status}
-                    </Badge>
                   </div>
                 </CardContent>
               </Card>
             );
           })}
+          </div>
 
         </>
       )}
+
+      {/* Payment Approved Cards */}
+      {activeOrders
+        .filter(order => order.status === 'preparing' && order.paymentStatus === 'completed')
+        .map(order => (
+          <PaymentApprovedCard
+            key={order.id}
+            order={order}
+            isOpen={paymentApprovedCardOpen[order.id] || false}
+            onClose={() => {
+              setPaymentApprovedCardOpen(prev => ({ ...prev, [order.id]: false }));
+            }}
+          />
+        ))}
+
+      {/* Payment Approved Cards */}
+      {activeOrders
+        .filter(order => order.status === 'preparing' && order.paymentStatus === 'completed')
+        .map(order => (
+          <PaymentApprovedCard
+            key={order.id}
+            order={order}
+            isOpen={paymentApprovedCardOpen[order.id] || false}
+            onClose={() => {
+              setPaymentApprovedCardOpen(prev => ({ ...prev, [order.id]: false }));
+            }}
+          />
+        ))}
       {pastOrders.filter(order => order.status !== "rejected").length > 0 && (
         <div className="mt-12">
           <h2 className="text-3xl font-extrabold text-gray-900 mb-8 flex items-center gap-3">

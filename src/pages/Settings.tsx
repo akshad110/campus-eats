@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Navigation } from '@/components/ui/navigation';
-import { MinimalFooter } from '@/components/ui/minimal-footer';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -49,8 +48,7 @@ export default function Settings() {
   const [promotionalEmails, setPromotionalEmails] = useState(false);
 
   // Preferences
-  const [theme, setTheme] = useState<'light' | 'dark' | 'auto'>('light');
-  const [language, setLanguage] = useState('en');
+  const [theme, setTheme] = useState<'light'>('light');
 
   const validatePassword = () => {
     setPasswordError('');
@@ -128,7 +126,6 @@ export default function Settings() {
         orderUpdates,
         promotionalEmails,
         theme,
-        language,
       };
 
       // Store in localStorage for now (can be moved to backend later)
@@ -393,45 +390,13 @@ export default function Settings() {
                 <Label>Theme</Label>
                 <div className="flex gap-2">
                   <Button
-                    variant={theme === 'light' ? 'default' : 'outline'}
-                    onClick={() => setTheme('light')}
-                    className="flex-1"
+                    variant="default"
+                    className="flex-1 bg-orange-600 hover:bg-orange-700"
                   >
                     <Sun className="h-4 w-4 mr-2" />
                     Light
                   </Button>
-                  <Button
-                    variant={theme === 'dark' ? 'default' : 'outline'}
-                    onClick={() => setTheme('dark')}
-                    className="flex-1"
-                  >
-                    <Moon className="h-4 w-4 mr-2" />
-                    Dark
-                  </Button>
-                  <Button
-                    variant={theme === 'auto' ? 'default' : 'outline'}
-                    onClick={() => setTheme('auto')}
-                    className="flex-1"
-                  >
-                    Auto
-                  </Button>
                 </div>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-2">
-                <Label>Language</Label>
-                <select
-                  value={language}
-                  onChange={(e) => setLanguage(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-                >
-                  <option value="en">English</option>
-                  <option value="hi">Hindi</option>
-                  <option value="es">Spanish</option>
-                  <option value="fr">French</option>
-                </select>
               </div>
 
               <Button
@@ -478,7 +443,6 @@ export default function Settings() {
           </Card>
         </div>
       </div>
-      <MinimalFooter />
     </div>
   );
 }

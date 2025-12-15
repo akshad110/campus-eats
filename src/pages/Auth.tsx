@@ -21,31 +21,33 @@ import { User } from "@/lib/types";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
+
+const Auth = () => {
+  const { t } = useTranslation();
+  const [isLoading, setIsLoading] = useState(false);
+  const { login, register } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
 const loginSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-  role: z.enum(["student", "shopkeeper", "developer"] as const),
+    email: z.string().email(t("auth.emailRequired")),
+    password: z.string().min(6, t("auth.passwordMin")),
+  role: z.enum(["student", "shopkeeper"] as const),
 });
 
 const registerSchema = loginSchema
   .extend({
-    name: z.string().min(2, "Name must be at least 2 characters"),
+      name: z.string().min(2, t("auth.nameMin")),
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords don't match",
+      message: t("auth.passwordMatch"),
     path: ["confirmPassword"],
   });
 
 type LoginForm = z.infer<typeof loginSchema>;
 type RegisterForm = z.infer<typeof registerSchema>;
-
-const Auth = () => {
-  const [isLoading, setIsLoading] = useState(false);
-  const { login, register } = useAuth();
-  const navigate = useNavigate();
-  const { toast } = useToast();
 
   const loginForm = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -70,29 +72,25 @@ const Auth = () => {
   const onLogin = async (data: LoginForm) => {
     setIsLoading(true);
     try {
-      await login(data.email, data.password, data.role);
+      const loggedInUser = await login(data.email, data.password, data.role);
       toast({
-        title: "Welcome back!",
-        description: "You've been successfully logged in.",
+        title: t("auth.welcomeBack"),
+        description: t("auth.loginSuccess"),
       });
 
-      // Redirect based on role
-      switch (data.role) {
-        case "student":
-          navigate("/home");
-          break;
-        case "shopkeeper":
-          navigate("/admin");
-          break;
-        case "developer":
-          navigate("/developer");
-          break;
+      // Redirect based on role (including developer from hardcoded login)
+      if (loggedInUser.role === "developer") {
+        navigate("/developer");
+      } else if (loggedInUser.role === "student") {
+        navigate("/home");
+      } else if (loggedInUser.role === "shopkeeper") {
+        navigate("/admin");
       }
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Login failed",
-        description: "Please check your credentials and try again.",
+        title: t("auth.loginFailed"),
+        description: t("auth.loginError"),
       });
     } finally {
       setIsLoading(false);
@@ -102,29 +100,23 @@ const Auth = () => {
   const onRegister = async (data: RegisterForm) => {
     setIsLoading(true);
     try {
-      await register(data.email, data.password, data.name, data.role);
+      const registeredUser = await register(data.email, data.password, data.name, data.role);
       toast({
-        title: "Account created!",
-        description: "Welcome to CampusEats!",
+        title: t("auth.registerSuccess"),
+        description: t("auth.registerSuccessDesc"),
       });
 
       // Redirect based on role
-      switch (data.role) {
-        case "student":
-          navigate("/home");
-          break;
-        case "shopkeeper":
-          navigate("/admin");
-          break;
-        case "developer":
-          navigate("/developer");
-          break;
+      if (registeredUser.role === "student") {
+        navigate("/home");
+      } else if (registeredUser.role === "shopkeeper") {
+        navigate("/admin");
       }
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Registration failed",
-        description: "Please try again with different credentials.",
+        title: t("auth.registerFailed"),
+        description: t("auth.registerError"),
       });
     } finally {
       setIsLoading(false);
@@ -137,8 +129,6 @@ const Auth = () => {
         return "Order food from campus shops and track your tokens";
       case "shopkeeper":
         return "Manage your shop, menu, and orders";
-      case "developer":
-        return "Access admin dashboard and analytics";
       default:
         return "";
     }
@@ -156,28 +146,28 @@ const Auth = () => {
               className="inline-flex items-center text-orange-600 hover:text-orange-700 mb-6"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Home
+              {t("nav.home")}
             </Link>
 
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Welcome to CampusEats
+              {t("auth.welcomeToTakeAway", { defaultValue: "Welcome to TakeAway" })}
             </h1>
             <p className="text-gray-600">
-              Sign in to your account or create a new one
+              {t("auth.signInOrCreate", { defaultValue: "Sign in to your account or create a new one" })}
             </p>
           </div>
 
           <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
             <CardHeader>
               <CardTitle className="text-center text-2xl font-bold text-gray-900">
-                Get Started
+                {t("auth.getStarted", { defaultValue: "Get Started" })}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <Tabs defaultValue="login" className="w-full">
                 <TabsList className="grid w-full grid-cols-2 mb-6">
-                  <TabsTrigger value="login">Sign In</TabsTrigger>
-                  <TabsTrigger value="register">Sign Up</TabsTrigger>
+                  <TabsTrigger value="login">{t("auth.signIn")}</TabsTrigger>
+                  <TabsTrigger value="register">{t("auth.signUp")}</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="login">
@@ -186,7 +176,7 @@ const Auth = () => {
                     className="space-y-4"
                   >
                     <div className="space-y-2">
-                      <Label htmlFor="login-email">Email</Label>
+                      <Label htmlFor="login-email">{t("auth.email")}</Label>
                       <Input
                         id="login-email"
                         type="email"
@@ -201,7 +191,7 @@ const Auth = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="login-password">Password</Label>
+                      <Label htmlFor="login-password">{t("auth.password")}</Label>
                       <Input
                         id="login-password"
                         type="password"
@@ -215,20 +205,19 @@ const Auth = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="login-role">I am a</Label>
+                      <Label htmlFor="login-role">{t("auth.iAmA", { defaultValue: "I am a" })}</Label>
                       <Select
                         value={loginForm.watch("role")}
-                        onValueChange={(value: User["role"]) =>
-                          loginForm.setValue("role", value)
+                        onValueChange={(value) =>
+                          loginForm.setValue("role", value as "student" | "shopkeeper")
                         }
                       >
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="student">Student</SelectItem>
-                          <SelectItem value="shopkeeper">Shopkeeper</SelectItem>
-                          <SelectItem value="developer">Developer</SelectItem>
+                          <SelectItem value="student">{t("auth.student")}</SelectItem>
+                          <SelectItem value="shopkeeper">{t("auth.shopkeeper")}</SelectItem>
                         </SelectContent>
                       </Select>
                       <p className="text-sm text-gray-500">
@@ -244,7 +233,7 @@ const Auth = () => {
                       {isLoading && (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       )}
-                      Sign In
+                      {t("auth.signIn")}
                     </Button>
                   </form>
                 </TabsContent>
@@ -255,7 +244,7 @@ const Auth = () => {
                     className="space-y-4"
                   >
                     <div className="space-y-2">
-                      <Label htmlFor="register-name">Full Name</Label>
+                      <Label htmlFor="register-name">{t("auth.fullName", { defaultValue: "Full Name" })}</Label>
                       <Input
                         id="register-name"
                         placeholder="John Doe"
@@ -269,7 +258,7 @@ const Auth = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="register-email">Email</Label>
+                      <Label htmlFor="register-email">{t("auth.email")}</Label>
                       <Input
                         id="register-email"
                         type="email"
@@ -284,7 +273,7 @@ const Auth = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="register-password">Password</Label>
+                      <Label htmlFor="register-password">{t("auth.password")}</Label>
                       <Input
                         id="register-password"
                         type="password"
@@ -299,7 +288,7 @@ const Auth = () => {
 
                     <div className="space-y-2">
                       <Label htmlFor="register-confirm-password">
-                        Confirm Password
+                        {t("auth.confirmPassword")}
                       </Label>
                       <Input
                         id="register-confirm-password"
@@ -317,20 +306,19 @@ const Auth = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="register-role">I am a</Label>
+                      <Label htmlFor="register-role">{t("auth.iAmA", { defaultValue: "I am a" })}</Label>
                       <Select
                         value={registerForm.watch("role")}
-                        onValueChange={(value: User["role"]) =>
-                          registerForm.setValue("role", value)
+                        onValueChange={(value) =>
+                          registerForm.setValue("role", value as "student" | "shopkeeper")
                         }
                       >
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="student">Student</SelectItem>
-                          <SelectItem value="shopkeeper">Shopkeeper</SelectItem>
-                          <SelectItem value="developer">Developer</SelectItem>
+                          <SelectItem value="student">{t("auth.student")}</SelectItem>
+                          <SelectItem value="shopkeeper">{t("auth.shopkeeper")}</SelectItem>
                         </SelectContent>
                       </Select>
                       <p className="text-sm text-gray-500">
@@ -346,7 +334,7 @@ const Auth = () => {
                       {isLoading && (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       )}
-                      Create Account
+                      {t("auth.createAccount", { defaultValue: "Create Account" })}
                     </Button>
                   </form>
                 </TabsContent>

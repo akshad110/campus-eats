@@ -1,4 +1,4 @@
-// Database models and interfaces for the CampusEats application
+// Database models and interfaces for the TakeAway application
 
 export interface DatabaseUser {
   id: string;

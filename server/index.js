@@ -13,6 +13,7 @@ import timezone from 'dayjs/plugin/timezone.js';
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import streamifier from "streamifier";
+import { Resend } from "resend";
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
@@ -541,6 +542,18 @@ async function startServer() {
         );
       }
     });
+
+    // Handle port already in use error
+    httpServer.on('error', (error) => {
+      if (error.code === 'EADDRINUSE') {
+        console.error(`❌ Port ${PORT} is already in use.`);
+        console.log('💡 Waiting for port to be released... (nodemon will retry automatically)');
+        // Don't exit - let nodemon handle the restart after file changes
+      } else {
+        console.error("❌ Server error:", error);
+        process.exit(1);
+      }
+    });
   } catch (error) {
     console.error("❌ Failed to start server:", error);
     process.exit(1);
@@ -856,11 +869,18 @@ app.get("/api/shops/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.query.user_id;
-    const [shops] = await pool.execute("SELECT * FROM shops WHERE id = ?", [id]);
+    // Calculate active tokens (only orders with payment completed - not just approved)
+    const [shops] = await pool.execute(
+      `SELECT s.*, 
+        (SELECT COUNT(*) FROM orders o WHERE o.shop_id = s.id AND o.status IN ('approved', 'preparing', 'ready') AND o.payment_status = 'completed' AND DATE(o.created_at) = CURDATE()) AS tokens
+      FROM shops s WHERE s.id = ?`,
+      [id]
+    );
     if (shops.length === 0) {
       return res.status(404).json({ success: false, error: "Shop not found" });
     }
     let shop = shops[0];
+    shop.activeTokens = shop.tokens || 0;
     res.json({ success: true, data: shop });
   } catch (error) {
     console.error("Get shop error:", error);
@@ -871,11 +891,15 @@ app.get("/api/shops/:id", async (req, res) => {
 app.get("/api/shops/owner/:ownerId", async (req, res) => {
   try {
     const { ownerId } = req.params;
+    // Calculate active tokens (only orders with payment completed - not just approved)
     const [shops] = await pool.execute(
-      "SELECT * FROM shops WHERE owner_id = ? AND is_active = TRUE",
+      `SELECT s.*, 
+        (SELECT COUNT(*) FROM orders o WHERE o.shop_id = s.id AND o.status IN ('approved', 'preparing', 'ready') AND o.payment_status = 'completed' AND DATE(o.created_at) = CURDATE()) AS tokens
+      FROM shops s WHERE s.owner_id = ? AND s.is_active = TRUE`,
       [ownerId],
     );
-    res.json({ success: true, data: shops });
+    const shopsWithTokens = shops.map((shop) => ({ ...shop, activeTokens: shop.tokens || 0 }));
+    res.json({ success: true, data: shopsWithTokens });
   } catch (error) {
     console.error("Get shops by owner error:", error);
     res.status(500).json({ success: false, error: error.message });
@@ -884,14 +908,14 @@ app.get("/api/shops/owner/:ownerId", async (req, res) => {
 
 app.get("/api/shops", async (req, res) => {
   try {
-    // Fetch all shops and calculate tokens dynamically
+    // Fetch all shops and calculate tokens dynamically - only count orders with payment completed
     const [shops] = await pool.execute(
       `SELECT s.*, 
-        (SELECT COUNT(*) FROM orders o WHERE o.shop_id = s.id AND o.status IN ('preparing', 'ready', 'fulfilled', 'collected') AND DATE(o.created_at) = CURDATE()) AS tokens
+        (SELECT COUNT(*) FROM orders o WHERE o.shop_id = s.id AND o.status IN ('approved', 'preparing', 'ready') AND o.payment_status = 'completed' AND DATE(o.created_at) = CURDATE()) AS tokens
       FROM shops s WHERE s.is_active = TRUE`
     );
     // Remove upi_id from all shops in public list
-    const sanitized = shops.map((shop) => ({ ...shop, upi_id: undefined, tokens: shop.tokens || 0 }));
+    const sanitized = shops.map((shop) => ({ ...shop, upi_id: undefined, tokens: shop.tokens || 0, activeTokens: shop.tokens || 0 }));
     res.json({ success: true, data: sanitized });
   } catch (error) {
     console.error("Get all shops error:", error);
@@ -1227,8 +1251,18 @@ async function getShopAnalytics({ shopId, startDate, endDate }) {
     [shopId]
   );
   // 8. Average Preparation/Fulfillment Time
+  // Calculate from created_at to actual_pickup_time (if available), or updated_at (when marked as fulfilled), or use preparation_time field
   const [prepRows] = await pool.execute(
-    `SELECT AVG(TIMESTAMPDIFF(MINUTE, created_at, actual_pickup_time)) as avg_fulfillment FROM orders WHERE shop_id = ? AND status = 'fulfilled' AND created_at BETWEEN ? AND ?`,
+    `SELECT AVG(
+      CASE 
+        WHEN actual_pickup_time IS NOT NULL THEN TIMESTAMPDIFF(MINUTE, created_at, actual_pickup_time)
+        WHEN updated_at IS NOT NULL THEN TIMESTAMPDIFF(MINUTE, created_at, updated_at)
+        WHEN preparation_time IS NOT NULL THEN preparation_time
+        ELSE NULL
+      END
+    ) as avg_fulfillment 
+     FROM orders 
+     WHERE shop_id = ? AND status = 'fulfilled' AND created_at BETWEEN ? AND ?`,
     [shopId, defaultStart, defaultEnd]
   );
   // 9. Peak Hours
@@ -1629,7 +1663,47 @@ app.put("/api/orders/:id/status", async (req, res) => {
       return res.status(404).json({ success: false, error: "Order not found after update" });
     }
 
-    res.json({ success: true, data: orders[0] });
+    const updatedOrder = orders[0];
+    
+    // Emit socket event for order status update
+    io.emit('order_status_update', {
+      orderId: id,
+      status: updatedOrder.status,
+      userId: updatedOrder.user_id,
+      shopId: updatedOrder.shop_id,
+      order: updatedOrder
+    });
+
+    // If order was completed/cancelled, or payment status was just changed to completed, update and broadcast token count
+    // We need to check if payment_status was updated to 'completed' (it will be in the request body)
+    const paymentJustCompleted = payment_status === 'completed' && ['approved', 'preparing', 'ready'].includes(updatedOrder.status);
+    const shouldUpdateTokens = 
+      ['fulfilled', 'cancelled', 'collected'].includes(updatedOrder.status) ||
+      paymentJustCompleted;
+    
+    if (shouldUpdateTokens) {
+      try {
+        // Calculate new active token count for this shop (only orders with payment completed)
+        const [tokenRows] = await pool.execute(
+          `SELECT COUNT(*) as activeTokens FROM orders 
+           WHERE shop_id = ? AND status IN ('approved', 'preparing', 'ready') 
+           AND payment_status = 'completed' AND DATE(created_at) = CURDATE()`,
+          [updatedOrder.shop_id]
+        );
+        const activeTokens = tokenRows[0]?.activeTokens || 0;
+        
+        // Broadcast token count update to all clients
+        io.emit('shop_tokens_update', {
+          shopId: updatedOrder.shop_id,
+          activeTokens: activeTokens
+        });
+        console.log(`🎫 Updated token count for shop ${updatedOrder.shop_id}: ${activeTokens}`);
+      } catch (tokenError) {
+        console.error("Error updating token count:", tokenError);
+      }
+    }
+
+    res.json({ success: true, data: updatedOrder });
   } catch (error) {
     console.error("❌ Update order status error:", error);
     console.error("Error details:", {
@@ -1685,6 +1759,165 @@ app.get("/api/orders", async (req, res) => {
     res.json({ success: true, data: orders });
   } catch (error) {
     console.error("Get orders by user error:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Developer Dashboard - Get all users (students and shopkeepers)
+app.get("/api/developer/users", async (req, res) => {
+  try {
+    const { role } = req.query;
+    let query = "SELECT * FROM users WHERE 1=1";
+    const params = [];
+    
+    if (role) {
+      query += " AND role = ?";
+      params.push(role);
+    }
+    
+    query += " ORDER BY created_at DESC";
+    
+    const [users] = await pool.execute(query, params);
+    
+    // Get last login info and order stats for each user
+    const usersWithStats = await Promise.all(users.map(async (user) => {
+      // Get user's orders
+      const [orders] = await pool.execute(
+        "SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC",
+        [user.id]
+      );
+      
+      const totalAmount = orders.reduce((sum, order) => sum + (Number(order.total_amount) || 0), 0);
+      const totalOrders = orders.length;
+      
+      // Get last login (we'll use updated_at or created_at as proxy since we don't track logins)
+      const lastLogin = user.updated_at || user.created_at;
+      
+      return {
+        ...user,
+        totalOrders,
+        totalAmount,
+        lastLogin,
+        orders: orders.slice(0, 10), // Last 10 orders
+      };
+    }));
+    
+    res.json({ success: true, data: usersWithStats });
+  } catch (error) {
+    console.error("Get users error:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Developer Dashboard - Get user details with full order history
+app.get("/api/developer/users/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { startDate, endDate } = req.query;
+    
+    // Get user
+    const [users] = await pool.execute("SELECT * FROM users WHERE id = ?", [userId]);
+    if (users.length === 0) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+    
+    const user = users[0];
+    
+    // Get all orders for user
+    let ordersQuery = "SELECT * FROM orders WHERE user_id = ?";
+    const params = [userId];
+    
+    if (startDate && endDate) {
+      ordersQuery += " AND created_at BETWEEN ? AND ?";
+      params.push(startDate, endDate);
+    }
+    
+    ordersQuery += " ORDER BY created_at DESC";
+    
+    const [orders] = await pool.execute(ordersQuery, params);
+    
+    const totalAmount = orders.reduce((sum, order) => sum + (Number(order.total_amount) || 0), 0);
+    const totalOrders = orders.length;
+    
+    res.json({
+      success: true,
+      data: {
+        ...user,
+        totalOrders,
+        totalAmount,
+        orders,
+        lastLogin: user.updated_at || user.created_at,
+      },
+    });
+  } catch (error) {
+    console.error("Get user details error:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Developer Dashboard - Block/Unblock user
+app.put("/api/developer/users/:userId/block", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { isBlocked, reason } = req.body;
+    
+    // Update user's isActive status
+    await pool.execute(
+      "UPDATE users SET is_active = ? WHERE id = ?",
+      [isBlocked ? 0 : 1, userId]
+    );
+    
+    res.json({
+      success: true,
+      message: isBlocked ? "User blocked successfully" : "User unblocked successfully",
+    });
+  } catch (error) {
+    console.error("Block user error:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Developer Dashboard - Get shop owners with stats
+app.get("/api/developer/shopowners", async (req, res) => {
+  try {
+    const [shopOwners] = await pool.execute(
+      "SELECT * FROM users WHERE role = 'shopkeeper' ORDER BY created_at DESC"
+    );
+    
+    // Get stats for each shop owner
+    const ownersWithStats = await Promise.all(shopOwners.map(async (owner) => {
+      // Get shops owned by this owner
+      const [shops] = await pool.execute(
+        "SELECT * FROM shops WHERE owner_id = ?",
+        [owner.id]
+      );
+      
+      // Get all orders from all shops
+      let totalOrders = 0;
+      let totalRevenue = 0;
+      
+      for (const shop of shops) {
+        const [orders] = await pool.execute(
+          "SELECT * FROM orders WHERE shop_id = ? AND status = 'fulfilled'",
+          [shop.id]
+        );
+        totalOrders += orders.length;
+        totalRevenue += orders.reduce((sum, order) => sum + (Number(order.total_amount) || 0), 0);
+      }
+      
+      return {
+        ...owner,
+        shopsCount: shops.length,
+        totalOrders,
+        totalRevenue,
+        lastLogin: owner.updated_at || owner.created_at,
+        shops: shops,
+      };
+    }));
+    
+    res.json({ success: true, data: ownersWithStats });
+  } catch (error) {
+    console.error("Get shop owners error:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -1756,6 +1989,81 @@ app.get('/api/orders/:orderId/ratings/count', async (req, res) => {
     res.status(500).json({ success: false, error: 'Failed to fetch rating count' });
   }
 });
+
+// ======================== FEEDBACK EMAIL ROUTE =========================
+// Send feedback email using Resend API
+app.post("/api/send-feedback", async (req, res) => {
+  try {
+    const { name, email, message } = req.body;
+
+    // Validate input
+    if (!name || !email || !message) {
+      return res.status(400).json({
+        success: false,
+        error: "Name, email, and message are required",
+      });
+    }
+
+    // Check if Resend API key is configured
+    if (!process.env.RESEND_API) {
+      console.error("⚠️ RESEND_API not configured");
+      return res.status(500).json({
+        success: false,
+        error: "Email service not configured",
+      });
+    }
+
+    // Initialize Resend
+    const resend = new Resend(process.env.RESEND_API);
+
+    // Send email
+    const { data, error } = await resend.emails.send({
+      from: "TakeAway Feedback <onboarding@resend.dev>", // You can change this to your verified domain
+      to: ["akshadvengurlekar35@gmail.com"],
+      subject: `New Feedback from ${name}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #f97316;">New Feedback Received</h2>
+          <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <p><strong>Name:</strong> ${name}</p>
+            <p><strong>Email:</strong> ${email}</p>
+            <p><strong>Message:</strong></p>
+            <p style="background-color: white; padding: 15px; border-left: 4px solid #f97316; margin-top: 10px;">
+              ${message.replace(/\n/g, "<br>").replace(/</g, "&lt;").replace(/>/g, "&gt;")}
+            </p>
+          </div>
+          <p style="color: #6b7280; font-size: 12px; margin-top: 20px;">
+            This feedback was submitted through the TakeAway website.
+          </p>
+        </div>
+      `,
+    });
+
+    if (error) {
+      console.error("Resend error:", error);
+      return res.status(500).json({
+        success: false,
+        error: "Failed to send email",
+        details: error.message,
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Feedback sent successfully",
+      data: data,
+    });
+  } catch (err) {
+    console.error("Error sending feedback email:", err);
+    res.status(500).json({
+      success: false,
+      error: "Failed to send feedback email",
+      details: err.message,
+    });
+  }
+});
+
+// Translation endpoint removed - now using react-i18next with static translation files
 
 // Serve static files from dist (if frontend is built and served from backend)
 // Uncomment the following lines if you want to serve frontend from backend:

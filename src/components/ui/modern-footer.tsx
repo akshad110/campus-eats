@@ -10,11 +10,13 @@ export const ModernFooter = () => {
           {/* Brand section */}
           <div className="col-span-1 md:col-span-2">
             <div className="flex items-center space-x-2 mb-4">
-              <div className="h-8 w-8 rounded-lg bg-gradient-to-r from-orange-500 to-amber-500 flex items-center justify-center text-white font-bold text-sm">
-                🍽️
-              </div>
+              <img 
+                src="/WhatsApp Image 2025-12-14 at 10.21.27 AM.jpeg" 
+                alt="TakeAway Logo" 
+                className="h-8 w-8 rounded-lg object-cover"
+              />
               <span className="text-xl font-bold text-gray-900">
-                CampusEats
+                TakeAway
               </span>
             </div>
             <p className="text-gray-600 mb-6 max-w-md">
@@ -36,7 +38,7 @@ export const ModernFooter = () => {
                 },
                 {
                   icon: Mail,
-                  href: "mailto:hello@campuseats.com",
+                  href: "mailto:hello@takeaway.com",
                   label: "Email",
                 },
               ].map(({ icon: Icon, href, label }) => (
@@ -108,7 +110,7 @@ export const ModernFooter = () => {
         <div className="pt-8 border-t border-gray-200">
           <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
             <div className="text-sm text-gray-600">
-              © 2024 CampusEats, Inc. All rights reserved.
+              © 2024 TakeAway, Inc. All rights reserved.
             </div>
 
             <div className="flex items-center space-x-6 text-sm">

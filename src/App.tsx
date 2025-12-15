@@ -25,6 +25,8 @@ import AdminAnalytics from "./pages/AdminAnalytics";
 import ShopMenu from "./pages/ShopMenu";
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
+import HowItWorks from "./pages/HowItWorks";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -85,12 +87,20 @@ const AppContent = () => {
         <Route path="/admin/orders" element={<AdminOrders />} />
         <Route path="/admin/menu" element={<MenuManagement />} />
         <Route path="/admin/analytics" element={<AdminAnalytics />} />
-        <Route path="/developer" element={<DeveloperDashboard />} />
-        <Route path="/orders" element={<UserDashboard />} />
+        <Route
+          path="/developer"
+          element={
+            <ProtectedRoute allowedRoles={["developer"]}>
+              <DeveloperDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/orders" element={<UserOrders />} />
         <Route path="/notifications" element={<UserNotifications />} />
         <Route path="/user/orders" element={<UserOrders />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/how-it-works" element={<HowItWorks />} />
         {/* Catch-all route - must be last */}
         <Route path="*" element={<NotFound />} />
       </Routes>
