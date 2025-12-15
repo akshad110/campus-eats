@@ -147,7 +147,7 @@ const AdminDashboard = () => {
     newSocket.on("order_status_update", (data) => {
       console.log("📡 Received order status update:", data);
       // Update stats immediately when order status changes
-      if (selectedShop && data.order && data.order.shop_id === selectedShop.id) {
+      if (selectedShop && (data.shopId === selectedShop.id || (data.order && data.order.shop_id === selectedShop.id))) {
         console.log("🔄 Order update for current shop, updating stats...");
         updateStats();
       }

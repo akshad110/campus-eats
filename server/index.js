@@ -6,7 +6,7 @@ import { createServer } from "http";
 import { Server as SocketIOServer } from "socket.io";
 import path from "path";
 import { fileURLToPath } from "url";
-// Stripe removed - using UPI payment
+import crypto from "crypto";
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc.js';
 import timezone from 'dayjs/plugin/timezone.js';
@@ -14,13 +14,21 @@ import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import streamifier from "streamifier";
 import { Resend } from "resend";
+import Razorpay from "razorpay";
+
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
-dotenv.config();
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Load environment variables from root .env file
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+
+// Debug: Check if Razorpay env vars are loaded
+console.log("🔍 Checking Razorpay environment variables...");
+console.log("RAZORPAY_KEY_ID:", process.env.RAZORPAY_KEY_ID ? "✅ SET" : "❌ NOT SET");
+console.log("RAZORPAY_KEY_SECRET:", process.env.RAZORPAY_KEY_SECRET ? "✅ SET" : "❌ NOT SET");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -40,6 +48,24 @@ cloudinary.config({
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
+
+// Razorpay Configuration
+let razorpay;
+try {
+  if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+    console.warn("⚠️ Razorpay keys not configured. Payment features will be disabled.");
+    razorpay = null;
+  } else {
+    razorpay = new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
+    });
+    console.log("✅ Razorpay initialized successfully");
+  }
+} catch (error) {
+  console.error("❌ Razorpay initialization error:", error);
+  razorpay = null;
+}
 
 // Configure multer for memory storage (we'll upload directly to Cloudinary)
 const storage = multer.memoryStorage();
@@ -217,12 +243,13 @@ async function createTables(connection) {
         shop_id VARCHAR(255) NOT NULL,
         items JSON NOT NULL,
         total_amount DECIMAL(10,2) NOT NULL,
-        status ENUM('pending_approval', 'approved', 'rejected', 'payment_pending', 'payment_completed', 'payment_failed', 'preparing', 'ready', 'fulfilled', 'cancelled') DEFAULT 'pending_approval',
+        status ENUM('pending_approval', 'approved', 'rejected', 'payment_pending', 'payment_completed', 'payment_failed', 'preparing', 'ready', 'fulfilled', 'cancelled', 'expired') DEFAULT 'pending_approval',
         token_number INT NULL,
         order_number INT NULL,
         estimated_pickup_time TIMESTAMP NULL,
         actual_pickup_time TIMESTAMP NULL,
         payment_status ENUM('pending', 'completed', 'failed', 'refunded') NULL DEFAULT NULL,
+        payment_transaction_id VARCHAR(255) NULL,
         payment_method ENUM('cash', 'card', 'digital_wallet', 'upi') NULL,
         payment_screenshot LONGTEXT NULL,
         notes TEXT,
@@ -289,6 +316,31 @@ async function createTables(connection) {
       }
     }
     
+    // Add 'expired' to status ENUM if it doesn't exist
+    try {
+      await connection.execute(`
+        ALTER TABLE orders MODIFY COLUMN status ENUM('pending_approval', 'approved', 'rejected', 'payment_pending', 'payment_completed', 'payment_failed', 'preparing', 'ready', 'fulfilled', 'cancelled', 'expired') DEFAULT 'pending_approval'
+      `);
+      console.log("✅ Added 'expired' to orders.status ENUM");
+    } catch (err) {
+      if (!err.message.includes("same as current") && !err.message.includes("Duplicate")) {
+        console.log("ℹ️ Could not modify status ENUM:", err.message);
+        console.error("   Run this SQL manually: ALTER TABLE orders MODIFY COLUMN status ENUM('pending_approval', 'approved', 'rejected', 'payment_pending', 'payment_completed', 'payment_failed', 'preparing', 'ready', 'fulfilled', 'cancelled', 'expired') DEFAULT 'pending_approval';");
+      }
+    }
+
+    // Add payment_transaction_id column if it doesn't exist
+    try {
+      await connection.execute(`
+        ALTER TABLE orders ADD COLUMN payment_transaction_id VARCHAR(255) NULL
+      `);
+      console.log("✅ Added payment_transaction_id column to orders table");
+    } catch (err) {
+      if (!err.message.includes("Duplicate column name")) {
+        console.log("ℹ️ Could not add payment_transaction_id column:", err.message);
+      }
+    }
+
     // Add payment_screenshot column if it doesn't exist, or modify if it exists but is wrong type
     try {
       // First check if column exists by trying to modify it
@@ -332,13 +384,26 @@ async function createTables(connection) {
         user_id VARCHAR(255) NOT NULL,
         title VARCHAR(255) NOT NULL,
         message TEXT NOT NULL,
-        type ENUM('order_update', 'token_ready', 'promotional', 'system') NOT NULL,
+        type ENUM('order_update', 'token_ready', 'promotional', 'system', 'order_expired') NOT NULL,
         is_read BOOLEAN DEFAULT FALSE,
         metadata JSON,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       )
     `);
+
+    // Add 'order_expired' to notifications.type ENUM if it doesn't exist
+    try {
+      await connection.execute(`
+        ALTER TABLE notifications MODIFY COLUMN type ENUM('order_update', 'token_ready', 'promotional', 'system', 'order_expired') NOT NULL
+      `);
+      console.log("✅ Added 'order_expired' to notifications.type ENUM");
+    } catch (err) {
+      if (!err.message.includes("same as current") && !err.message.includes("Duplicate")) {
+        console.log("ℹ️ Could not modify notifications.type ENUM:", err.message);
+        console.error("   Run this SQL manually: ALTER TABLE notifications MODIFY COLUMN type ENUM('order_update', 'token_ready', 'promotional', 'system', 'order_expired') NOT NULL;");
+      }
+    }
 
     console.log("📋 All tables created successfully");
   } catch (err) {
@@ -1171,36 +1236,64 @@ app.get("/api/shops/:shopId/orders/pending", async (req, res) => {
   }
 });
 
-// === AUTO-CANCEL UNPAID APPROVED ORDERS ===
+// === AUTO-EXPIRE / AUTO-CANCEL UNPAID APPROVED ORDERS ===
+// After 5 minutes in "approved" without successful payment, move orders out of the active queue
+// so they appear in history for both students and shopkeepers.
 setInterval(async () => {
   try {
     const [orders] = await pool.execute(
-      `SELECT * FROM orders WHERE status = 'approved' AND payment_status = 'pending' AND TIMESTAMPDIFF(MINUTE, updated_at, NOW()) >= 5`
+      `SELECT * FROM orders 
+       WHERE status = 'approved' 
+         AND (payment_status IS NULL OR payment_status = 'pending')
+         AND TIMESTAMPDIFF(MINUTE, updated_at, NOW()) >= 5`
     );
+
     for (const order of orders) {
-      // Cancel the order
+      const isNeverPaid = order.payment_status === null;
+      const newStatus = isNeverPaid ? 'expired' : 'cancelled';
+
+      // Update order status + payment status
       await pool.execute(
-        `UPDATE orders SET status = 'cancelled', payment_status = 'failed', updated_at = NOW() WHERE id = ?`,
-        [order.id]
+        `UPDATE orders 
+           SET status = ?, 
+               payment_status = 'failed', 
+               updated_at = NOW() 
+         WHERE id = ?`,
+        [newStatus, order.id]
       );
+
+      const notificationTitle = isNeverPaid ? 'Order Expired' : 'Order Cancelled';
+      const notificationMessage = isNeverPaid
+        ? 'Your order expired because payment was not completed within 5 minutes.'
+        : 'Your order was cancelled because payment was not completed within 5 minutes.';
+      const notificationType = isNeverPaid ? 'order_expired' : 'order_update';
+
       // Insert notification for the user
       await pool.execute(
-        `INSERT INTO notifications (id, user_id, title, message, type, is_read, metadata, created_at) VALUES (?, ?, ?, ?, ?, false, ?, NOW())`,
+        `INSERT INTO notifications (id, user_id, title, message, type, is_read, metadata, created_at) 
+         VALUES (?, ?, ?, ?, ?, false, ?, NOW())`,
         [
           `notif_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
           order.user_id,
-          'Order Cancelled',
-          'Your order was cancelled because payment was not completed within 5 minutes.',
-          'order_update',
-          JSON.stringify({ order_id: order.id, status: 'cancelled', reason: 'payment timeout' }),
+          notificationTitle,
+          notificationMessage,
+          notificationType,
+          JSON.stringify({ order_id: order.id, status: newStatus, reason: 'payment timeout' }),
         ]
       );
-      // Emit socket event for real-time update
-      io.emit('order_status_update', { orderId: order.id, status: 'cancelled', userId: order.user_id, order: { ...order, status: 'cancelled', payment_status: 'failed' } });
-      console.log(`[AUTO-CANCEL] Order ${order.id} cancelled due to payment timeout.`);
+
+      // Emit socket event for real-time update on the student dashboard
+      io.emit('order_status_update', {
+        orderId: order.id,
+        status: newStatus,
+        userId: order.user_id,
+        order: { ...order, status: newStatus, payment_status: 'failed' },
+      });
+
+      console.log(`[AUTO-EXPIRE] Order ${order.id} moved to status: ${newStatus} due to payment timeout.`);
     }
   } catch (err) {
-    console.error('[AUTO-CANCEL] Error auto-cancelling unpaid orders:', err);
+    console.error('[AUTO-EXPIRE] Error auto-updating unpaid approved orders:', err);
   }
 }, 60 * 1000); // Check every 1 minute
 
@@ -1987,6 +2080,189 @@ app.get('/api/orders/:orderId/ratings/count', async (req, res) => {
   } catch (err) {
     console.error('Error fetching rating count:', err);
     res.status(500).json({ success: false, error: 'Failed to fetch rating count' });
+  }
+});
+
+// ======================== RAZORPAY PAYMENT ROUTES =========================
+// Create Razorpay order
+app.post("/api/razorpay/create-order", async (req, res) => {
+  try {
+    if (!razorpay) {
+      return res.status(500).json({
+        success: false,
+        error: "Razorpay is not configured. Please check your environment variables.",
+      });
+    }
+
+    const { amount, currency = "INR", orderId, customerName, customerEmail } = req.body;
+
+    if (!amount || !orderId) {
+      return res.status(400).json({
+        success: false,
+        error: "Amount and orderId are required",
+      });
+    }
+
+    // Convert amount to paise (Razorpay expects amount in smallest currency unit)
+    const amountInPaise = Math.round(amount * 100);
+
+    // Generate receipt (max 40 characters as per Razorpay requirement)
+    // Format: order_<last8chars>_<timestamp> (ensures it's always <= 40 chars)
+    const orderIdShort = orderId.length > 8 ? orderId.slice(-8) : orderId;
+    const timestamp = Date.now().toString().slice(-10); // Last 10 digits of timestamp
+    const receipt = `ord_${orderIdShort}_${timestamp}`.substring(0, 40); // Ensure max 40 chars
+
+    const options = {
+      amount: amountInPaise,
+      currency: currency,
+      receipt: receipt,
+      notes: {
+        orderId: orderId,
+        customerName: customerName || "Customer",
+        customerEmail: customerEmail || "",
+      },
+    };
+
+    const razorpayOrder = await razorpay.orders.create(options);
+
+    res.json({
+      success: true,
+      order: {
+        id: razorpayOrder.id,
+        amount: razorpayOrder.amount,
+        currency: razorpayOrder.currency,
+        receipt: razorpayOrder.receipt,
+      },
+    });
+  } catch (error) {
+    console.error("Razorpay order creation error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to create payment order",
+      details: error.message,
+    });
+  }
+});
+
+// Verify Razorpay payment
+app.post("/api/razorpay/verify-payment", async (req, res) => {
+  try {
+    if (!razorpay || !process.env.RAZORPAY_KEY_SECRET) {
+      return res.status(500).json({
+        success: false,
+        error: "Razorpay is not configured. Please check your environment variables.",
+      });
+    }
+
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, orderId } = req.body;
+
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !orderId) {
+      return res.status(400).json({
+        success: false,
+        error: "Missing required payment verification parameters",
+      });
+    }
+
+    // Create signature for verification
+    const generated_signature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+      .digest("hex");
+
+    if (generated_signature !== razorpay_signature) {
+      return res.status(400).json({
+        success: false,
+        error: "Payment verification failed - Invalid signature",
+      });
+    }
+
+    // Update order status in database - set payment_status to completed and status to preparing
+    const connection = await pool.getConnection();
+    try {
+      // Get order details to set preparation time
+      const [orderRows] = await connection.execute(
+        `SELECT shop_id, preparation_time FROM orders WHERE id = ?`,
+        [orderId]
+      );
+      
+      const shopId = orderRows.length > 0 ? orderRows[0].shop_id : null;
+      const prepTime = orderRows[0]?.preparation_time || 15; // Default 15 minutes
+      
+      // Calculate estimated pickup time
+      const pickupDate = new Date(Date.now() + prepTime * 60000);
+      const pickupTime = pickupDate.toISOString().slice(0, 19).replace('T', ' ');
+
+      // Update order: payment completed and status to preparing
+      await connection.execute(
+        `UPDATE orders 
+         SET payment_status = 'completed', 
+             status = 'preparing',
+             payment_transaction_id = ?,
+             estimated_pickup_time = ?,
+             updated_at = NOW()
+         WHERE id = ?`,
+        [razorpay_payment_id, pickupTime, orderId]
+      );
+
+      // Create notification for user
+      const [userRows] = await connection.execute(
+        `SELECT user_id FROM orders WHERE id = ?`,
+        [orderId]
+      );
+      const userId = userRows[0]?.user_id;
+      
+      if (userId) {
+        await connection.execute(
+          `INSERT INTO notifications (id, user_id, title, message, type, is_read, metadata, created_at) 
+           VALUES (?, ?, ?, ?, ?, false, ?, NOW())`,
+          [
+            `notif_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+            userId,
+            'Payment Successful',
+            `Your payment has been confirmed! Your order is now being prepared. Estimated time: ${prepTime} minutes.`,
+            'order_update',
+            JSON.stringify({ order_id: orderId, status: 'preparing', payment_status: 'completed', preparation_time: prepTime }),
+          ]
+        );
+      }
+
+      // Emit socket event for real-time update
+      io.emit("order_status_update", {
+        orderId: orderId,
+        status: "preparing",
+        payment_status: "completed",
+        payment_transaction_id: razorpay_payment_id,
+        userId: userId,
+        shopId: shopId,
+        order: {
+          id: orderId,
+          shop_id: shopId,
+          status: 'preparing',
+          payment_status: 'completed',
+          payment_transaction_id: razorpay_payment_id,
+        },
+      });
+
+      // Emit token update
+      if (shopId) {
+        io.emit("shop_tokens_update", { shopId });
+      }
+    } finally {
+      connection.release();
+    }
+
+    res.json({
+      success: true,
+      message: "Payment verified successfully",
+      payment_id: razorpay_payment_id,
+    });
+  } catch (error) {
+    console.error("Razorpay payment verification error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to verify payment",
+      details: error.message,
+    });
   }
 });
 

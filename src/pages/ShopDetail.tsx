@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Navigation } from "@/components/ui/navigation";
-import { PaymentGatewayComponent } from "@/components/PaymentGateway";
+import { RazorpayPayment } from "@/components/RazorpayPayment";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { ApiService } from "@/lib/api";
@@ -361,7 +361,7 @@ const ShopDetail = () => {
   // Payment UI
   if (orderStatus === "payment" && currentOrder && user) {
     return (
-      <PaymentGatewayComponent
+      <RazorpayPayment
         isOpen={showPaymentGateway}
         onClose={() => setShowPaymentGateway(false)}
         orderDetails={{

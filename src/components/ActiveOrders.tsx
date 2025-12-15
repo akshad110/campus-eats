@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Clock, CookingPot, ShoppingBag, XCircle, History, CreditCard, FileText, Truck } from "lucide-react";
 import { Socket } from "socket.io-client";
-import { QRPaymentScanner } from './QRPaymentScanner';
+import { RazorpayPayment } from './RazorpayPayment';
 import { useShop } from "@/contexts/ShopContext";
 import React from "react";
 import { useRef } from 'react';
@@ -21,16 +21,38 @@ function getTimeLeft(approvedAt: string) {
   return diff > 0 ? diff : 0;
 }
 
-function Timer({ approvedAt }: { approvedAt: string }) {
+function Timer({ approvedAt, orderId, onExpired }: { approvedAt: string; orderId: string; onExpired?: () => void }) {
   const [timeLeft, setTimeLeft] = React.useState(getTimeLeft(approvedAt));
+  const [hasExpired, setHasExpired] = React.useState(false);
+  
   React.useEffect(() => {
+    if (timeLeft <= 0 && !hasExpired) {
+      setHasExpired(true);
+      // Mark order as expired in backend
+      ApiService.updateOrderStatus(orderId, 'expired', undefined, 'failed').then(() => {
+        if (onExpired) onExpired();
+      }).catch(err => {
+        console.error('Failed to mark order as expired:', err);
+      });
+      return;
+    }
     if (timeLeft <= 0) return;
     const interval = setInterval(() => {
-      setTimeLeft(getTimeLeft(approvedAt));
+      const newTimeLeft = getTimeLeft(approvedAt);
+      setTimeLeft(newTimeLeft);
+      if (newTimeLeft <= 0 && !hasExpired) {
+        setHasExpired(true);
+        ApiService.updateOrderStatus(orderId, 'expired', undefined, 'failed').then(() => {
+          if (onExpired) onExpired();
+        }).catch(err => {
+          console.error('Failed to mark order as expired:', err);
+        });
+      }
     }, 1000);
     return () => clearInterval(interval);
-  }, [approvedAt, timeLeft]);
-  if (timeLeft <= 0) return <span className="text-red-600 font-semibold">Expired</span>;
+  }, [approvedAt, timeLeft, hasExpired, orderId, onExpired]);
+  
+  if (timeLeft <= 0 || hasExpired) return <span className="text-red-600 font-semibold">Expired</span>;
   const min = Math.floor(timeLeft / 60000);
   const sec = Math.floor((timeLeft % 60000) / 1000);
   return <span className="text-orange-600 font-semibold">{min}:{sec.toString().padStart(2, '0')} left to pay</span>;
@@ -162,9 +184,8 @@ export const ActiveOrders = ({ socket }: { socket: Socket | null }) => {
   const [paymentUsed, setPaymentUsed] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [payingOrderId, setPayingOrderId] = useState<string | null>(null);
-  const [showQRScanner, setShowQRScanner] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedOrderForPayment, setSelectedOrderForPayment] = useState<Order | null>(null);
-  const [shopUpiId, setShopUpiId] = useState<string>('');
   const [notifications, setNotifications] = useState<any[]>([]);
   const { refreshShops } = useShop();
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
@@ -218,17 +239,34 @@ export const ActiveOrders = ({ socket }: { socket: Socket | null }) => {
     try {
       const allOrders = await ApiService.getOrdersByUser(user.id);
       console.log('DEBUG: All orders fetched for user:', allOrders.map(o => ({id: o.id, status: o.status, paymentStatus: o.paymentStatus, items: o.items})));
-      const active = allOrders.filter(
-        (o) => !["fulfilled", "cancelled", "rejected", "expired"].includes(o.status) &&
-          [
-            "pending_approval",
-            "approved",
-            "preparing",
-            "ready",
-            "payment_pending",
-            "payment_completed"
-          ].includes(o.status)
-      );
+      // Filter active orders - exclude expired, cancelled, rejected, fulfilled
+      // Also exclude approved orders that have expired (more than 5 minutes since approval)
+      const active = allOrders.filter((o) => {
+        // Exclude orders with these statuses
+        if (["fulfilled", "cancelled", "rejected", "expired"].includes(o.status)) {
+          return false;
+        }
+        
+        // Check if approved order has expired (more than 5 minutes since updatedAt)
+        if (o.status === 'approved' && o.paymentStatus !== 'completed' && o.updatedAt) {
+          const approvedTime = new Date(o.updatedAt).getTime();
+          const now = Date.now();
+          const fiveMinutes = 5 * 60 * 1000;
+          if (now - approvedTime >= fiveMinutes) {
+            return false; // Exclude expired approved orders
+          }
+        }
+        
+        // Include only these statuses
+        return [
+          "pending_approval",
+          "approved",
+          "preparing",
+          "ready",
+          "payment_pending",
+          "payment_completed"
+        ].includes(o.status);
+      });
       // Include rejected orders in past orders
       const past = allOrders.filter((o) => ["fulfilled", "cancelled", "expired", "rejected"].includes(o.status));
       setActiveOrders(active.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
@@ -406,7 +444,14 @@ export const ActiveOrders = ({ socket }: { socket: Socket | null }) => {
                         {/* Countdown timer for approved orders */}
                         {order.status === 'approved' && order.paymentStatus !== 'completed' && order.updatedAt && (
                           <div className="mt-2 mb-3">
-                            <Timer approvedAt={order.updatedAt} />
+                            <Timer 
+                              approvedAt={order.updatedAt} 
+                              orderId={order.id}
+                              onExpired={() => {
+                                // Refresh orders when timer expires
+                                fetchOrders();
+                              }}
+                            />
                             <div className="text-xs text-gray-500 mt-1">If not paid in 5 minutes, your order will be cancelled automatically.</div>
                           </div>
                         )}
@@ -473,26 +518,9 @@ export const ActiveOrders = ({ socket }: { socket: Socket | null }) => {
                               /* This handles: null, undefined, or any other status */
                               <button
                                 className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded text-sm font-semibold shadow transition-colors w-full"
-                                onClick={async () => {
-                                  // Fetch shop UPI ID
-                                  try {
-                                    const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
-                                    const shopResponse = await fetch(`${API_URL}/shops/${order.shopId}`);
-                                    if (!shopResponse.ok) {
-                                      throw new Error('Failed to fetch shop details');
-                                    }
-                                    const shopData = await shopResponse.json();
-                                    if (shopData.success && shopData.data.upi_id) {
-                                      setShopUpiId(shopData.data.upi_id);
-                                      setSelectedOrderForPayment(order);
-                                      setShowQRScanner(true);
-                                    } else {
-                                      alert('Shop UPI ID not found. Please contact the shopkeeper.');
-                                    }
-                                  } catch (error) {
-                                    console.error('Error fetching shop UPI ID:', error);
-                                    alert('Failed to load payment details. Please try again.');
-                                  }
+                                onClick={() => {
+                                  setSelectedOrderForPayment(order);
+                                  setShowPaymentModal(true);
                                 }}
                               >
                                 💳 Pay Now
@@ -652,26 +680,43 @@ export const ActiveOrders = ({ socket }: { socket: Socket | null }) => {
           )}
         </div>
       )}
-      {/* QR Payment Scanner Modal */}
-      {showQRScanner && selectedOrderForPayment && shopUpiId && (
-        <QRPaymentScanner
-          isOpen={showQRScanner}
+      {/* Razorpay Payment Modal */}
+      {showPaymentModal && selectedOrderForPayment && (
+        <RazorpayPayment
+          isOpen={showPaymentModal}
           onClose={() => {
-            setShowQRScanner(false);
+            setShowPaymentModal(false);
             setSelectedOrderForPayment(null);
-            setShopUpiId('');
           }}
-          orderId={selectedOrderForPayment.id}
-          amount={selectedOrderForPayment.totalAmount}
-          upiId={shopUpiId}
-          onSuccess={() => {
-            handlePaymentSuccess();
-            setShowQRScanner(false);
+          orderDetails={{
+            orderId: selectedOrderForPayment.id,
+            amount: selectedOrderForPayment.totalAmount,
+            items: selectedOrderForPayment.items.map(item => ({
+              name: item.menuItem?.name || "Unknown Item",
+              quantity: item.quantity,
+              price: item.menuItem?.price || 0,
+            })),
+            shopName: "Shop", // Shop name can be fetched separately if needed
+            tokenNumber: selectedOrderForPayment.tokenNumber || 0,
+            shopId: selectedOrderForPayment.shopId,
+          }}
+          customerDetails={{
+            email: user?.email || "",
+            name: user?.name || "Customer",
+          }}
+          onPaymentSuccess={(transactionId) => {
+            setShowPaymentModal(false);
             setSelectedOrderForPayment(null);
-            setShopUpiId('');
+            // Refresh orders
+            fetchOrders();
+            handlePaymentSuccess();
+          }}
+          onPaymentFailed={(error) => {
+            console.error("Payment failed:", error);
           }}
         />
       )}
+
       {/* Modal for rating */}
       {showRatingModal && modalOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
