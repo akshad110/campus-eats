@@ -167,13 +167,13 @@ export class Database {
   async connect(): Promise<void> {
     try {
       // In a real application, this would connect to MongoDB or your preferred database
-      console.log("Connecting to database...");
+      // Connecting to database
 
       // Initialize database tables/collections if they don't exist
       await this.initializeTables();
 
       this.isConnected = true;
-      console.log("Database connected successfully");
+      // Database connected successfully
     } catch (error) {
       console.error("Database connection failed:", error);
       throw new Error("Failed to connect to database");
@@ -195,7 +195,7 @@ export class Database {
     ];
 
     for (const table of tables) {
-      console.log(`Initializing table: ${table}`);
+      // Initializing table
       // Create table schema here
     }
   }
@@ -206,7 +206,7 @@ export class Database {
 
   async disconnect(): Promise<void> {
     this.isConnected = false;
-    console.log("Database disconnected");
+    // Database disconnected
   }
 }
 

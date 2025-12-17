@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useTranslation } from "react-i18next";
 import {
   Select,
   SelectContent,
@@ -23,6 +24,7 @@ import { OrderManagement } from "@/lib/orderManagement";
 import { DatabaseOrder } from "@/lib/database";
 import { ApiService } from "@/lib/api";
 import { MenuItem } from "@/lib/types";
+import { formatTimeIST, calculatePickupTimeIST } from "@/lib/utils";
 import {
   Clock,
   CheckCircle,
@@ -67,6 +69,7 @@ export const OrderApproval = ({
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   useEffect(() => {
     loadPendingOrders();
@@ -96,7 +99,7 @@ export const OrderApproval = ({
       const result = await response.json();
       if (!result.success) throw new Error(result.error || "Failed to fetch pending orders");
       setPendingOrders(result.data);
-      console.log(`Loaded ${result.data.length} pending orders for shop ${shopId}`);
+      // Loaded pending orders
     } catch (error) {
       console.error("Failed to load pending orders:", error);
     }
@@ -156,11 +159,11 @@ export const OrderApproval = ({
         prevOrders.filter(order => order.id !== orderId)
       );
       
-      console.log('🔄 OrderApproval: Order processed, calling onOrderUpdate immediately');
+      // Order processed
       if (onOrderUpdate) {
         onOrderUpdate();
       } else {
-        console.warn('⚠️ OrderApproval: onOrderUpdate function not provided');
+        // onOrderUpdate function not provided
       }
       
       // Refresh data in background
@@ -219,16 +222,16 @@ export const OrderApproval = ({
           <ShoppingBag className="h-12 w-12 text-gray-300 mr-3" />
           <div className="text-left">
             <h3 className="text-lg font-semibold text-gray-600">
-              No Pending Orders
+              {t("orderApproval.noPendingOrders")}
             </h3>
             <p className="text-sm text-gray-500">
-              All caught up! New orders will appear here for approval.
+              {t("orderApproval.allCaughtUp")}
             </p>
           </div>
         </div>
         <div className="flex items-center justify-center text-xs text-gray-400">
           <RefreshCw className="h-3 w-3 mr-1" />
-          Last checked: {lastRefresh.toLocaleTimeString()}
+          {t("orderApproval.lastChecked")}: {lastRefresh.toLocaleTimeString()}
         </div>
       </div>
     );
@@ -244,12 +247,12 @@ export const OrderApproval = ({
             <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
           </div>
           <h3 className="text-lg font-semibold text-gray-900">
-            Pending Approvals ({normalizedPendingOrders.length})
+            {t("orderApproval.pendingApprovals")} ({normalizedPendingOrders.length})
           </h3>
         </div>
         <div className="flex items-center space-x-2 text-xs text-gray-500">
           <RefreshCw className="h-3 w-3" />
-          Auto-refreshing • Last: {lastRefresh.toLocaleTimeString()}
+          {t("orderApproval.autoRefreshing")} • {t("orderApproval.last")}: {lastRefresh.toLocaleTimeString()}
         </div>
       </div>
 
@@ -261,8 +264,8 @@ export const OrderApproval = ({
             key={order.id}
             className="border-l-4 border-orange-500 bg-orange-50/30 hover:bg-orange-50/50 transition-colors"
           >
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between">
+            <CardContent className="p-4 sm:p-5">
+              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3 md:gap-4">
                 <div className="flex-1">
                   {/* Order Header */}
                   <div className="flex items-center space-x-3 mb-3">
@@ -271,7 +274,7 @@ export const OrderApproval = ({
                     </div>
                     <div>
                       <h4 className="font-semibold text-gray-900">
-                        Order Details
+                        {t("orderApproval.orderDetails")}
                       </h4>
                       <div className="flex items-center space-x-3 text-sm text-gray-600">
                         <span className="flex items-center">
@@ -280,16 +283,16 @@ export const OrderApproval = ({
                         </span>
                         <span>₹{Number((order as any).total_amount || order.totalAmount).toFixed(2)}</span>
                         <Badge className="bg-yellow-100 text-yellow-800 text-xs">
-                          NEEDS APPROVAL
+                          {t("orderApproval.needsApproval")}
                         </Badge>
                       </div>
                     </div>
                   </div>
 
                   {/* Order Items */}
-                  <div className="bg-white/80 rounded-lg p-3">
+                    <div className="bg-white/80 rounded-lg p-3 space-y-2">
                     <h5 className="text-sm font-medium text-gray-700 mb-2">
-                      Order Items:
+                      {t("orderApproval.items")}:
                     </h5>
                     {order.items.map((item: any, index: number) => {
                       // Get price from item.price, item.menuItem?.price, or default to 0
@@ -320,7 +323,7 @@ export const OrderApproval = ({
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex flex-col space-y-2 ml-4">
+                <div className="flex flex-col space-y-2 mt-4 md:mt-0 md:ml-4 w-full md:w-auto">
                   <Dialog>
                     <DialogTrigger asChild>
                       <Button
@@ -329,13 +332,13 @@ export const OrderApproval = ({
                         className="bg-green-600 hover:bg-green-700 whitespace-nowrap"
                       >
                         <CheckCircle className="h-4 w-4 mr-1" />
-                        Approve
+                        {t("orderApproval.approve")}
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-md">
                       <DialogHeader>
                         <DialogTitle>
-                          Approve Order
+                          {t("orderApproval.approveOrder")}
                         </DialogTitle>
                       </DialogHeader>
 
@@ -343,16 +346,16 @@ export const OrderApproval = ({
                         <div className="space-y-4">
                           <div className="bg-gray-50 p-3 rounded-lg">
                             <div className="text-sm">
-                              <strong>Total:</strong> ₹
+                              <strong>{t("orderApproval.total")}:</strong> ₹
                               {Number((selectedOrder as any).total_amount || selectedOrder?.totalAmount).toFixed(2)}
                             </div>
                             <div className="text-sm text-gray-600">
-                              {selectedOrder.items.length} items
+                              {selectedOrder.items.length} {t("orderApproval.items")}
                             </div>
                           </div>
 
                           <div className="space-y-2">
-                            <Label>Preparation Time (minutes)</Label>
+                            <Label>{t("orderApproval.preparationTime")}</Label>
                             <Select
                               value={approvalTime.toString()}
                               onValueChange={(value) =>
@@ -363,21 +366,19 @@ export const OrderApproval = ({
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="5">5 minutes</SelectItem>
-                                <SelectItem value="10">10 minutes</SelectItem>
-                                <SelectItem value="15">15 minutes</SelectItem>
-                                <SelectItem value="20">20 minutes</SelectItem>
-                                <SelectItem value="25">25 minutes</SelectItem>
-                                <SelectItem value="30">30 minutes</SelectItem>
-                                <SelectItem value="45">45 minutes</SelectItem>
-                                <SelectItem value="60">1 hour</SelectItem>
+                                <SelectItem value="5">5 {t("orders.minutes")}</SelectItem>
+                                <SelectItem value="10">10 {t("orders.minutes")}</SelectItem>
+                                <SelectItem value="15">15 {t("orders.minutes")}</SelectItem>
+                                <SelectItem value="20">20 {t("orders.minutes")}</SelectItem>
+                                <SelectItem value="25">25 {t("orders.minutes")}</SelectItem>
+                                <SelectItem value="30">30 {t("orders.minutes")}</SelectItem>
+                                <SelectItem value="45">45 {t("orders.minutes")}</SelectItem>
+                                <SelectItem value="60">1 {t("orderApproval.hour")}</SelectItem>
                               </SelectContent>
                             </Select>
                             <p className="text-xs text-gray-500">
-                              Customer will be notified to pick up at:{" "}
-                              {new Date(
-                                Date.now() + approvalTime * 60000,
-                              ).toLocaleTimeString()}
+                              {t("orderApproval.customerWillBeNotified")}:{" "}
+                              {calculatePickupTimeIST(new Date(), approvalTime)}
                             </p>
                           </div>
 
@@ -393,7 +394,7 @@ export const OrderApproval = ({
                             ) : (
                               <CheckCircle className="h-4 w-4 mr-2" />
                             )}
-                            Confirm Approval
+                            {t("orderApproval.confirmApproval")}
                           </Button>
                         </div>
                       )}
@@ -409,23 +410,23 @@ export const OrderApproval = ({
                         onClick={() => openApprovalDialog(order)}
                       >
                         <XCircle className="h-4 w-4 mr-1" />
-                        Reject
+                        {t("orderApproval.reject")}
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-md">
                       <DialogHeader>
                         <DialogTitle>
-                          Reject Order
+                          {t("orderApproval.rejectOrder")}
                         </DialogTitle>
                       </DialogHeader>
                       {selectedOrder && (
                         <div className="space-y-4">
                           <div className="bg-gray-50 p-3 rounded-lg mb-3">
                             <div className="text-sm">
-                              <strong>Order:</strong> #{(selectedOrder as any).orderNumber || (selectedOrder as any).order_number || selectedOrder.id}
+                              <strong>{t("orderApproval.order")}:</strong> #{(selectedOrder as any).orderNumber || (selectedOrder as any).order_number || selectedOrder.id}
                             </div>
                             <div className="text-sm text-gray-600">
-                              {selectedOrder.items.length} items
+                              {selectedOrder.items.length} {t("orderApproval.items")}
                             </div>
                           </div>
                           

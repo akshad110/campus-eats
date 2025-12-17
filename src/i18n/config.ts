@@ -36,6 +36,7 @@ i18n
       ar: { translation: arTranslations },
     },
     fallbackLng: 'en',
+    supportedLngs: ['en', 'es', 'fr', 'de', 'it', 'pt', 'ru', 'ja', 'zh', 'hi', 'gu', 'mr', 'ar'],
     debug: false,
     interpolation: {
       escapeValue: false, // React already escapes values

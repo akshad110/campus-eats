@@ -30,7 +30,7 @@ export async function uploadImage(file: File): Promise<string> {
     console.error('Image upload error:', error);
     
     // Fallback: convert to base64 if upload fails
-    console.warn('Falling back to base64 encoding');
+    // Falling back to base64 encoding
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onloadend = () => {

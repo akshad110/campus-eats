@@ -49,7 +49,7 @@ export interface CartItem {
 }
 
 export type OrderStatus = 'pending_approval' | 'approved' | 'rejected' | 'preparing' | 'ready' | 'fulfilled' | 'cancelled';
-export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded';
+export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refund_processing' | 'refunded';
 
 export interface Order {
   id: string;

@@ -86,5 +86,35 @@ export class RazorpayService {
       };
     }
   }
+
+  // Process Razorpay refund
+  static async processRefund(
+    paymentId: string,
+    orderId: string,
+    amount?: number // Optional: for partial refunds, if not provided, full refund
+  ): Promise<{ success: boolean; refundId?: string; message?: string; error?: string }> {
+    try {
+      const response = await fetch(`${this.API_BASE_URL}/razorpay/refund`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          payment_id: paymentId,
+          order_id: orderId,
+          amount: amount, // If not provided, backend will do full refund
+        }),
+      });
+
+      const data = await response.json();
+      return data;
+    } catch (error: any) {
+      console.error("Error processing Razorpay refund:", error);
+      return {
+        success: false,
+        error: error.message || "Failed to process refund",
+      };
+    }
+  }
 }
 

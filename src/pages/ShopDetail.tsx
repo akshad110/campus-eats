@@ -185,7 +185,7 @@ const ShopDetail = () => {
           user_id: user.id,
           shop_id: shop.id,
           items: orderItems,
-          total_amount: parseFloat(getTotalPrice()),
+          total_amount: parseFloat(getTotalPrice()), // Store base amount without platform fee
           notes: "",
         }),
       });
@@ -366,7 +366,8 @@ const ShopDetail = () => {
         onClose={() => setShowPaymentGateway(false)}
         orderDetails={{
           orderId: currentOrder.id,
-          amount: currentOrder.totalAmount,
+          amount: currentOrder.totalAmount + 5, // Add ₹5 platform fee
+          baseAmount: currentOrder.totalAmount, // Store base amount for display
           items: currentOrder.items.map((item: any) => ({
             name: item.menuItem.name || "Unknown Item",
             quantity: item.quantity,
@@ -403,12 +404,12 @@ const ShopDetail = () => {
 
           {/* Shop Header */}
           <Card className="mb-6 sm:mb-8 overflow-hidden border-0 shadow-lg">
-            <div className="h-32 sm:h-40 md:h-48 bg-gray-200">
+            <div className="h-32 sm:h-40 md:h-48 bg-gray-200 relative overflow-hidden">
               {shop.image && (
                 <img
                   src={shop.image}
                   alt={shop.name}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover object-center"
                 />
               )}
             </div>

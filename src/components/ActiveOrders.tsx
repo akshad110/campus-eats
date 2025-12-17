@@ -12,6 +12,8 @@ import { useShop } from "@/contexts/ShopContext";
 import React from "react";
 import { useRef } from 'react';
 import { PaymentApprovedCard } from './PaymentApprovedCard';
+import { formatTimeIST, calculatePickupTimeIST } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 function getTimeLeft(approvedAt: string) {
   const FIVE_MIN = 5 * 60 * 1000;
@@ -106,9 +108,9 @@ const OrderStatusStepper = ({ status, paymentStatus }: { status: Order["status"]
 
   return (
     <div className="w-full py-3">
-      <div className="flex items-start justify-between relative px-1">
-        {/* Connecting lines - positioned at the top of icons */}
-        <div className="absolute top-5 left-8 right-8 h-0.5 bg-gray-200 -z-10">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-0 relative px-1">
+        {/* Connecting line - only visible on wider screens */}
+        <div className="hidden sm:block absolute top-5 left-8 right-8 h-0.5 bg-gray-200 -z-10">
         <div
             className="absolute top-0 left-0 h-full bg-orange-500 transition-all duration-500 ease-out"
             style={{ width: currentStepIndex > 0 ? `${(currentStepIndex / (steps.length - 1)) * 100}%` : '0%' }}
@@ -124,13 +126,13 @@ const OrderStatusStepper = ({ status, paymentStatus }: { status: Order["status"]
           return (
             <div
               key={step.name}
-              className={`flex flex-col items-center flex-1 relative ${
+              className={`flex flex-col items-start sm:items-center flex-1 relative w-full sm:w-auto ${
                 isCurrent ? 'z-10' : ''
               }`}
             >
               {/* Step container with border for current step */}
               <div
-                className={`flex flex-col items-center transition-all duration-300 rounded-lg p-2 ${
+                className={`flex flex-col items-start sm:items-center transition-all duration-300 rounded-lg p-2 ${
                   isCurrent
                     ? 'border-2 border-orange-500 bg-orange-50/40 shadow-md'
                     : 'border-2 border-transparent'
@@ -142,8 +144,8 @@ const OrderStatusStepper = ({ status, paymentStatus }: { status: Order["status"]
                     isActive
                       ? 'bg-orange-500 text-white shadow-md'
                       : 'bg-gray-200 text-gray-400'
-                  }`}
-                >
+              }`}
+            >
                   <StepIcon size={20} strokeWidth={2} />
                 </div>
 
@@ -238,7 +240,6 @@ export const ActiveOrders = ({ socket }: { socket: Socket | null }) => {
     setLoading(true);
     try {
       const allOrders = await ApiService.getOrdersByUser(user.id);
-      console.log('DEBUG: All orders fetched for user:', allOrders.map(o => ({id: o.id, status: o.status, paymentStatus: o.paymentStatus, items: o.items})));
       // Filter active orders - exclude expired, cancelled, rejected, fulfilled
       // Also exclude approved orders that have expired (more than 5 minutes since approval)
       const active = allOrders.filter((o) => {
@@ -259,12 +260,12 @@ export const ActiveOrders = ({ socket }: { socket: Socket | null }) => {
         
         // Include only these statuses
         return [
-          "pending_approval",
-          "approved",
-          "preparing",
-          "ready",
-          "payment_pending",
-          "payment_completed"
+            "pending_approval",
+            "approved",
+            "preparing",
+            "ready",
+            "payment_pending",
+            "payment_completed"
         ].includes(o.status);
       });
       // Include rejected orders in past orders
@@ -402,12 +403,12 @@ export const ActiveOrders = ({ socket }: { socket: Socket | null }) => {
               (n) => n.title && n.title.toLowerCase().includes('ready for pickup') && n.metadata && n.metadata.order_id === order.id
             );
             return (
-                <Card 
-                  key={order.id} 
-                  className="bg-white shadow-md border border-gray-200 hover:shadow-lg transition-all duration-300 hover:border-orange-300"
-                >
-                <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
+              <Card 
+                key={order.id} 
+                className="bg-white shadow-md border border-gray-200 hover:shadow-lg transition-all duration-300 hover:border-orange-300"
+              >
+                <CardContent className="p-4 sm:p-5">
+                  <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
                       {/* Order number badge */}
                       <div className="bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-full w-12 h-12 flex items-center justify-center font-bold text-sm flex-shrink-0">
                         #{order.orderNumber || '-'}
@@ -465,31 +466,31 @@ export const ActiveOrders = ({ socket }: { socket: Socket | null }) => {
                           >
                             <div className="bg-orange-50 border-l-4 border-orange-400 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow max-w-xs">
                               <div className="font-bold text-orange-700 text-sm mb-1">
-                                🎟️ Your Token: {order.tokenNumber || (tokenNotif && tokenNotif.metadata?.token_number) || 'N/A'}
+                                🎟️ {t("orders.yourToken")}: {order.tokenNumber || (tokenNotif && tokenNotif.metadata?.token_number) || 'N/A'}
                               </div>
                               <div className="text-gray-700 text-xs mb-1">
-                                Estimated preparation time: {order.preparationTime || 15} minutes
+                                {t("orders.estimatedPreparationTime")}: {order.preparationTime || 15} {t("orders.minutes")}
                               </div>
                               <div className="text-xs text-gray-500">
-                                Estimated pickup: {
+                                {t("orders.estimatedPickup")}: {
                                   order.estimatedPickupTime
-                                    ? new Date(order.estimatedPickupTime).toLocaleTimeString()
+                                    ? formatTimeIST(order.estimatedPickupTime)
                                     : (order.updatedAt && order.preparationTime
-                                        ? new Date(new Date(order.updatedAt).getTime() + order.preparationTime * 60000).toLocaleTimeString()
+                                        ? calculatePickupTimeIST(order.updatedAt, order.preparationTime)
                                         : 'N/A')
                                 }
                               </div>
                               <div className="text-xs text-orange-600 mt-1.5 font-medium flex items-center gap-1">
-                                👆 Click to view detailed information
+                                👆 {t("orders.clickToViewDetails")}
                               </div>
                             </div>
                           </div>
                         ) : tokenNotif ? (
                           <div className="mt-3 inline-block">
                             <div className="bg-orange-50 border-l-4 border-orange-400 rounded-lg p-3 shadow-sm max-w-xs">
-                              <div className="font-bold text-orange-700 text-sm mb-1">🎟️ Your Token: {tokenNotif.metadata?.token_number || order.tokenNumber || 'N/A'}</div>
-                              <div className="text-gray-700 text-xs mb-1">Your food will take approximately {order.preparationTime || 15} minutes to prepare.</div>
-                              <div className="text-xs text-gray-500">Token issued at: {tokenNotif.metadata?.estimated_pickup_time ? new Date(tokenNotif.metadata?.estimated_pickup_time).toLocaleTimeString() : (order.updatedAt && order.preparationTime ? new Date(new Date(order.updatedAt).getTime() + order.preparationTime * 60000).toLocaleTimeString() : 'N/A')}</div>
+                              <div className="font-bold text-orange-700 text-sm mb-1">🎟️ {t("orders.yourToken")}: {tokenNotif.metadata?.token_number || order.tokenNumber || 'N/A'}</div>
+                              <div className="text-gray-700 text-xs mb-1">{t("orders.foodWillTake", { minutes: order.preparationTime || 15 })}</div>
+                              <div className="text-xs text-gray-500">{t("orders.tokenIssuedAt")}: {tokenNotif.metadata?.estimated_pickup_time ? formatTimeIST(tokenNotif.metadata.estimated_pickup_time) : (order.updatedAt && order.preparationTime ? calculatePickupTimeIST(order.updatedAt, order.preparationTime) : 'N/A')}</div>
                             </div>
                           </div>
                         ) : null}
@@ -497,9 +498,9 @@ export const ActiveOrders = ({ socket }: { socket: Socket | null }) => {
                         {order.status === 'ready' && readyNotif && (
                           <div className="mt-3">
                             <div className="bg-green-50 border-l-4 border-green-400 rounded-lg p-3 shadow-sm">
-                              <div className="font-bold text-green-700 text-sm mb-1">🍽️ Food Ready!</div>
-                              <div className="text-gray-700 text-xs mb-1">Your food is ready! Please collect it within 30 minutes.</div>
-                              <div className="text-xs text-gray-500">Ready at: {new Date(readyNotif.created_at).toLocaleTimeString()}</div>
+                              <div className="font-bold text-green-700 text-sm mb-1">🍽️ {t("orders.foodReady")}</div>
+                              <div className="text-gray-700 text-xs mb-1">{t("orders.foodReadyDesc")}</div>
+                              <div className="text-xs text-gray-500">{t("orders.readyAt")}: {new Date(readyNotif.created_at).toLocaleTimeString()}</div>
                             </div>
                           </div>
                         )}
@@ -510,20 +511,20 @@ export const ActiveOrders = ({ socket }: { socket: Socket | null }) => {
                             {order.paymentStatus === 'pending' && (order as any).payment_screenshot ? (
                               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2.5">
                                 <p className="text-xs text-yellow-800 font-semibold">
-                                  ⏳ Waiting for shopkeeper to approve your payment
+                                  ⏳ {t("orders.waitingForPayment")}
                                 </p>
                               </div>
                             ) : (
                               /* Show Pay Now button if payment is not pending and not completed */
                               /* This handles: null, undefined, or any other status */
                               <button
-                                className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded text-sm font-semibold shadow transition-colors w-full"
+                                className="bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 rounded text-sm font-semibold shadow transition-colors w-auto inline-block"
                                 onClick={() => {
-                                  setSelectedOrderForPayment(order);
+                                      setSelectedOrderForPayment(order);
                                   setShowPaymentModal(true);
                                 }}
                               >
-                                💳 Pay Now
+                                💳 {t("orders.payNow")}
                               </button>
                             )}
                           </div>
@@ -601,9 +602,37 @@ export const ActiveOrders = ({ socket }: { socket: Socket | null }) => {
                         <span className="text-xs text-gray-500">{new Date(order.createdAt).toLocaleDateString()}</span>
                       </div>
                     </div>
-                    <span className={`px-4 py-1 rounded-full text-xs font-bold bg-green-100 text-green-800 border border-green-200 flex items-center gap-1 shadow-sm transition-all duration-300 ${expandedPastOrder === order.id ? 'scale-110 animate-pulse' : 'group-hover:scale-105'}`}>
-                      <svg className="h-4 w-4 text-green-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                      {order.status}
+                    <span className={`px-4 py-1 rounded-full text-xs font-bold ${
+                      order.status === 'cancelled' && order.paymentStatus === 'refunded' 
+                        ? 'bg-green-100 text-green-800 border border-green-200'
+                        : order.status === 'cancelled' && order.paymentStatus !== 'refunded'
+                        ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                        : order.status === 'rejected'
+                        ? 'bg-red-100 text-red-800 border border-red-200'
+                        : 'bg-green-100 text-green-800 border border-green-200'
+                    } flex items-center gap-1 shadow-sm transition-all duration-300 ${expandedPastOrder === order.id ? 'scale-110 animate-pulse' : 'group-hover:scale-105'}`}>
+                      {order.status === 'cancelled' && order.paymentStatus === 'refunded' ? (
+                        <svg className="h-4 w-4 text-green-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      ) : order.status === 'cancelled' && order.paymentStatus !== 'refunded' ? (
+                        <svg className="h-4 w-4 text-blue-500 animate-spin" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      ) : order.status === 'rejected' ? (
+                        <svg className="h-4 w-4 text-red-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      ) : (
+                        <svg className="h-4 w-4 text-green-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                      {order.status === 'cancelled' && order.paymentStatus === 'refunded' 
+                        ? 'Amount Refunded' 
+                        : order.status === 'cancelled' && order.paymentStatus !== 'refunded'
+                        ? 'Refund Processing'
+                        : order.status}
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-2 mt-2">
@@ -617,6 +646,36 @@ export const ActiveOrders = ({ socket }: { socket: Socket | null }) => {
                   {order.status === 'rejected' && (
                     <div className="mt-2 text-sm text-red-600 font-semibold">
                       Reason: {order.rejectionReason || 'No reason specified'}
+                    </div>
+                  )}
+                  {order.status === 'cancelled' && order.paymentStatus !== 'refunded' && (
+                    <div className="mt-3 bg-blue-50 border-l-4 border-blue-400 rounded-lg p-3 shadow-sm">
+                      <div className="flex items-start gap-2">
+                        <svg className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0 animate-spin" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div className="flex-1">
+                          <div className="font-bold text-blue-800 text-sm mb-1">Order Not Collected - Refund Processing</div>
+                          <div className="text-blue-700 text-xs">
+                            Your order was not collected. A refund (after deducting ₹5 preparation fee) is being processed and will be credited to your account within <span className="font-semibold">3-5 working days</span>.
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {order.status === 'cancelled' && order.paymentStatus === 'refunded' && (
+                    <div className="mt-3 bg-green-50 border-l-4 border-green-400 rounded-lg p-3 shadow-sm">
+                      <div className="flex items-start gap-2">
+                        <svg className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div className="flex-1">
+                          <div className="font-bold text-green-800 text-sm mb-1">Amount Refunded</div>
+                          <div className="text-green-700 text-xs">
+                            Your refund has been successfully processed and credited to your account.
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
                   {/* Interactive popup summary on hover */}
@@ -690,7 +749,8 @@ export const ActiveOrders = ({ socket }: { socket: Socket | null }) => {
           }}
           orderDetails={{
             orderId: selectedOrderForPayment.id,
-            amount: selectedOrderForPayment.totalAmount,
+            amount: selectedOrderForPayment.totalAmount + 5, // Add ₹5 platform fee
+            baseAmount: selectedOrderForPayment.totalAmount, // Store base amount for display
             items: selectedOrderForPayment.items.map(item => ({
               name: item.menuItem?.name || "Unknown Item",
               quantity: item.quantity,

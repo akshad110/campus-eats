@@ -18,6 +18,7 @@ interface AuthContextType {
     role: string
   ) => Promise<User>;
   logout: (navigate?: () => void) => void;
+  isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -25,13 +26,21 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Load from localStorage on mount
   useEffect(() => {
     const storedUser = localStorage.getItem("user_data");
     const storedToken = localStorage.getItem("auth_token");
-    if (storedUser) setUser(JSON.parse(storedUser));
+    if (storedUser) {
+      try {
+        setUser(JSON.parse(storedUser));
+      } catch (e) {
+        console.error("Error parsing user data:", e);
+      }
+    }
     if (storedToken) setToken(storedToken);
+    setIsLoading(false);
   }, []);
 
   // Store to localStorage when updated
@@ -109,7 +118,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AuthContext.Provider
-      value={{ user, token, login, register, logout }}
+      value={{ user, token, login, register, logout, isLoading }}
     >
       {children}
     </AuthContext.Provider>

@@ -46,7 +46,6 @@ class ApiService {
   // ==============================================================================
 
   static async getShops(): Promise<Shop[]> {
-      console.log("🏪 Loading shops from backend API");
       try {
         const response = await fetch(`${API_BASE_URL}/shops`);
         if (!response.ok) {
@@ -72,10 +71,9 @@ class ApiService {
           createdAt: dbShop.created_at,
           upiId: dbShop.upi_id,
         }));
-        console.log(`✅ Loaded ${shops.length} shops from backend API`);
         return shops;
       } catch (error) {
-        console.error("❌ Failed to fetch shops from backend:", error);
+        // Failed to fetch shops from backend
         return [];
     }
   }
@@ -92,16 +90,14 @@ class ApiService {
         if (!result.success) {
           throw new Error(result.error || "Failed to delete shop");
         }
-        console.log("✅ Shop deleted successfully from backend");
         return true;
       } catch (error) {
-        console.error("❌ Failed to delete shop from backend:", error);
+        // Failed to delete shop from backend
         return false;
     }
   }
 
   static async getShopById(id: string): Promise<Shop | null> {
-      console.log(`🔍 Fetching shop with ID: ${id} from backend API`);
       try {
         const response = await fetch(`${API_BASE_URL}/shops/${id}`);
         if (!response.ok) {
@@ -128,7 +124,7 @@ class ApiService {
           upiId: dbShop.upi_id,
         };
       } catch (error) {
-        console.error("❌ Failed to fetch shop from backend:", error);
+        // Failed to fetch shop from backend
         return null;
     }
   }
@@ -214,7 +210,6 @@ class ApiService {
   }
 
   static async getShopsByOwner(ownerId: string): Promise<Shop[]> {
-      console.log("👤 Loading shops for owner from backend API:", ownerId);
       try {
         const response = await fetch(`${API_BASE_URL}/shops/owner/${ownerId}`);
         if (!response.ok) {
@@ -240,10 +235,9 @@ class ApiService {
           createdAt: dbShop.created_at,
           upiId: dbShop.upi_id,
         }));
-        console.log(`✅ Found ${shops.length} shops for owner`);
         return shops;
       } catch (error) {
-        console.error("❌ Failed to fetch shops for owner from backend:", error);
+        // Failed to fetch shops for owner from backend
         return [];
     }
   }
@@ -420,7 +414,6 @@ class ApiService {
   }
 
   static async getOrdersByUser(userId: string): Promise<Order[]> {
-      console.log("🛍️ Loading orders by user from backend API");
       try {
         const response = await fetch(`${API_BASE_URL}/orders?user_id=${userId}`);
         if (!response.ok) {
@@ -438,7 +431,6 @@ class ApiService {
   }
 
   static async getOrdersByShop(shopId: string): Promise<Order[]> {
-      console.log("🛍️ Loading orders by shop from backend API");
       try {
         const response = await fetch(
           `${API_BASE_URL}/shops/${shopId}/orders/active`,
@@ -458,7 +450,6 @@ class ApiService {
   }
 
   static async getPendingOrdersByShop(shopId: string): Promise<Order[]> {
-      console.log("🛍️ Loading pending orders by shop from backend API");
       try {
         const response = await fetch(
           `${API_BASE_URL}/shops/${shopId}/orders/pending`,
@@ -472,13 +463,12 @@ class ApiService {
         }
         return result.data.map(this.convertDbOrderToFrontendOrder);
       } catch (error) {
-        console.error("❌ Failed to fetch pending orders from backend:", error);
+        // Failed to fetch pending orders from backend
         return [];
     }
   }
 
   static async getOrderById(id: string): Promise<Order | null> {
-    console.log("🔍 Getting order by ID:", id);
     try {
       const response = await fetch(`${API_BASE_URL}/orders/${id}`);
       if (!response.ok) {
@@ -513,7 +503,7 @@ class ApiService {
       }
       return order;
     } catch (error) {
-      console.error("❌ Failed to fetch order from backend:", error);
+      // Failed to fetch order from backend
       return null;
     }
   }
@@ -535,7 +525,6 @@ class ApiService {
       if (transaction_id !== undefined) payload.transaction_id = transaction_id;
       if (preparationTime !== undefined) payload.preparation_time = preparationTime;
       
-      console.log("📤 Sending order status update:", { orderId: id, payload });
       
       const response = await fetch(`${API_BASE_URL}/orders/${id}/status`, {
         method: "PUT",
@@ -575,7 +564,7 @@ class ApiService {
       }
       return order;
     } catch (error) {
-      console.error("❌ Failed to update order status via backend:", error);
+      // Failed to update order status via backend
       throw error;
     }
   }
@@ -615,15 +604,10 @@ class ApiService {
   // ==============================================================================
 
   static async initializeMockData(forceReset: boolean = false): Promise<void> {
-    console.log("🔄 Initializing localStorage data...");
     // await this.ensureLocalStorageData(); // Removed as per edit hint
-    console.log("✅ LocalStorage initialized successfully");
   }
 
   static async createFallbackShops(): Promise<void> {
-    console.log(
-      "ℹ️ Fallback shops are created automatically by ensureLocalStorageData",
-    );
   }
 
   static async resetAllData(): Promise<void> {
@@ -631,14 +615,12 @@ class ApiService {
     for (const table of tables) {
       localStorage.removeItem(`campuseats_${table}`);
     }
-    console.log("✅ All localStorage data cleared");
   }
 
   private static async createStarterMenuItems(
     shopId: string,
     category: string,
   ): Promise<void> {
-    console.log(`🍽️ Creating starter menu items for ${shopId} (${category})`);
 
     // Define starter menu items based on shop category
     const starterMenus: Record<string, any[]> = {
@@ -754,13 +736,12 @@ class ApiService {
           ingredients: [],
           allergens: [],
         });
-        console.log(`✅ Created menu item: ${item.name}`);
+        // Created menu item
       } catch (error) {
-        console.error(`❌ Failed to create menu item ${item.name}:`, error);
+        // Failed to create menu item
       }
     }
 
-    console.log(`✅ Starter menu created for shop ${shopId}`);
   }
 
   // ==============================================================================
@@ -847,6 +828,21 @@ class ApiService {
     if (dbOrder.payment_screenshot) {
       order.payment_screenshot = dbOrder.payment_screenshot;
     }
+    // Include payment_transaction_id if present (for refunds)
+    if (dbOrder.payment_transaction_id) {
+      order.payment_transaction_id = dbOrder.payment_transaction_id;
+      // Also add it as paymentTransactionId for camelCase compatibility
+      order.paymentTransactionId = dbOrder.payment_transaction_id;
+    }
+    // Include refund information if present
+    if (dbOrder.refund_id) {
+      order.refund_id = dbOrder.refund_id;
+      order.refundId = dbOrder.refund_id;
+    }
+    if (dbOrder.refund_status) {
+      order.refund_status = dbOrder.refund_status;
+      order.refundStatus = dbOrder.refund_status;
+    }
     return order;
   }
 
@@ -864,13 +860,10 @@ class ApiService {
     }
     if (changed) {
       localStorage.setItem(shopKey, JSON.stringify(shops));
-      console.log("🔄 Migrated shops: added 'closed' property to all shops");
     }
     if (hasData) {
-      console.log("✅ LocalStorage initialized with existing data");
       return;
     }
-    console.log("✅ LocalStorage initialized without existing data");
     await this.createLocalStorageFallbackData();
     localStorage.setItem("db_initialized", "true");
   }
@@ -916,9 +909,8 @@ class ApiService {
         await this.createLocalStorageMenuItems(shopData.id);
       }
 
-      console.log("✅ LocalStorage fallback data created");
     } catch (error) {
-      console.error("❌ Failed to create localStorage fallback data:", error);
+      // Failed to create localStorage fallback data
     }
   }
 

@@ -7,6 +7,7 @@ import { OrderApproval } from "@/components/OrderApproval";
 import { useAuth } from "@/contexts/AuthContext";
 import { ApiService } from "@/lib/api";
 import { OrderManagement } from "@/lib/orderManagement";
+import { RazorpayService } from "@/lib/razorpay";
 import { io as socketIOClient, Socket } from "socket.io-client";
 import {
   Store,
@@ -38,9 +39,9 @@ import { useShop } from "@/contexts/ShopContext";
 try {
   dayjs.extend(utc);
   dayjs.extend(timezone);
-  console.log('✅ Dayjs timezone plugins loaded successfully');
+  // Dayjs timezone plugins loaded
 } catch (error) {
-  console.warn('⚠️ Failed to load dayjs timezone plugins:', error);
+  // Failed to load dayjs timezone plugins
 }
 
 function getTimeLeft(approvedAt: string) {
@@ -91,7 +92,6 @@ const AdminDashboard = () => {
     try {
       return dayjs(dateString).tz('Asia/Kolkata').format(format);
     } catch (error) {
-      console.warn('⚠️ Timezone formatting failed, using local:', error);
       return dayjs(dateString).format(format);
     }
   };
@@ -101,7 +101,6 @@ const AdminDashboard = () => {
     try {
       return dayjs().tz('Asia/Kolkata').format('YYYY-MM-DD');
     } catch (error) {
-      console.warn('⚠️ Timezone error, using local date:', error);
       return dayjs().format('YYYY-MM-DD');
     }
   };
@@ -118,19 +117,9 @@ const AdminDashboard = () => {
         o.payment_status === 'completed'
       ).length;
       
-      console.log('🎫 updateActiveTokensCount:');
-      console.log('  - Shop ID:', selectedShop.id);
-      console.log('  - Total orders:', orders.length);
-      console.log('  - Orders by status:');
-      console.log('    * approved:', orders.filter((o: any) => o.status === 'approved').length);
-      console.log('    * preparing:', orders.filter((o: any) => o.status === 'preparing').length);
-      console.log('    * ready:', orders.filter((o: any) => o.status === 'ready').length);
-      console.log('  - Orders with payment completed:', orders.filter((o: any) => o.payment_status === 'completed').length);
-      console.log('  - Active Tokens count:', activeTokensCount);
-      
       setActiveTokens(activeTokensCount);
     } catch (error) {
-      console.error('❌ Error updating Active Tokens count:', error);
+      // Error updating Active Tokens count
     }
   };
 
@@ -141,14 +130,14 @@ const AdminDashboard = () => {
     setSocket(newSocket);
 
     newSocket.on("connect", () => {
-      console.log("🔌 Socket connected for AdminDashboard");
+      // Socket connected for AdminDashboard
     });
 
     newSocket.on("order_status_update", (data) => {
-      console.log("📡 Received order status update:", data);
+        // Received order status update
       // Update stats immediately when order status changes
       if (selectedShop && (data.shopId === selectedShop.id || (data.order && data.order.shop_id === selectedShop.id))) {
-        console.log("🔄 Order update for current shop, updating stats...");
+          // Order update for current shop
         updateStats();
       }
     });
@@ -196,7 +185,7 @@ const AdminDashboard = () => {
     try {
       // Load user shops directly without creating fallback data to preserve user shops
       const shops = await ApiService.getShopsByOwner(user.id);
-      console.log("Loaded shops for user:", user.id, shops);
+      // Loaded shops for user
       setUserShops(shops);
       if (shops.length > 0) {
         setSelectedShop(shops[0]);
@@ -206,7 +195,7 @@ const AdminDashboard = () => {
       if (shops.length === 0) {
         const allShops = await ApiService.getShops();
         if (allShops.length === 0) {
-          console.log("No shops exist at all, creating fallback shops...");
+          // No shops exist
           await ApiService.createFallbackShops();
         }
       }
@@ -219,11 +208,11 @@ const AdminDashboard = () => {
     if (!selectedShop) return;
 
     try {
-      console.log("Loading pending orders for shop:", selectedShop.id);
+      // Loading pending orders
       const pendingOrders = await OrderManagement.getPendingApprovalOrders(
         selectedShop.id,
       );
-      console.log("Loaded pending orders:", pendingOrders.length);
+      // Loaded pending orders
       setPendingOrdersCount(pendingOrders.length);
     } catch (error) {
       console.error("Failed to load pending orders:", error);
@@ -274,12 +263,44 @@ const AdminDashboard = () => {
 
   const handleSetStatus = async (orderId: string, status: string) => {
     setProcessingOrderId(orderId);
+    
+    // Find the current order to check payment status
+    const currentOrder = activeShopOrders.find(o => o.id === orderId);
+    
+    // If marking as cancelled and payment was completed, process refund
+    if (status === "cancelled" && currentOrder?.paymentStatus === 'completed') {
+      const paymentTransactionId = (currentOrder as any).payment_transaction_id || (currentOrder as any).paymentTransactionId;
+      
+      if (paymentTransactionId) {
+        try {
+          // Process refund via Razorpay
+          const refundResult = await RazorpayService.processRefund(
+            paymentTransactionId,
+            orderId
+          );
+          
+          if (refundResult.success) {
+            // Refund successful - backend will update order status to cancelled and payment_status to refunded
+            // Refund processed successfully
+          } else {
+            // Refund failed - show error but still allow status update
+            // Refund failed
+            alert(`Failed to process refund: ${refundResult.error}. Order status will still be updated to cancelled. Please process refund manually.`);
+          }
+        } catch (error: any) {
+          console.error("❌ Error processing refund:", error);
+          alert(`Error processing refund: ${error.message}. Order status will still be updated to cancelled. Please process refund manually.`);
+        }
+      } else {
+          // No payment transaction ID found
+      }
+    }
+    
     // Remove from active immediately if completed/cancelled
     if (["fulfilled", "cancelled"].includes(status)) {
       setActiveShopOrders(prevOrders => prevOrders.filter(order => order.id !== orderId));
       // Optimistically increment Today's Orders if fulfilled
       if (status === "fulfilled") {
-        const currentOrder = activeShopOrders.find(o => o.id === orderId);
         if (currentOrder && currentOrder.status !== "fulfilled") {
           setOrdersCount(prev => prev + 1);
         }
@@ -288,7 +309,6 @@ const AdminDashboard = () => {
       setActiveShopOrders(prevOrders => prevOrders.map(order => order.id === orderId ? { ...order, status } : order));
     }
     setActiveTokens(prevCount => {
-      const currentOrder = activeShopOrders.find(o => o.id === orderId);
       if (!currentOrder) return prevCount;
       // Only count as active if payment is completed
       const wasActive = ["approved", "preparing", "ready"].includes(currentOrder.status) && currentOrder.payment_status === 'completed';
@@ -723,8 +743,8 @@ const AdminDashboard = () => {
             <div className="space-y-3">
               {activeShopOrders.map((order) => (
                 <Card key={order.id} className="border-l-4 border-blue-500 bg-blue-50/30">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
+                  <CardContent className="p-4 sm:p-5">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
                       <div className="flex-1">
                         <div className="flex items-center space-x-3 mb-3">
                           <div className="bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-full w-10 h-10 flex items-center justify-center font-bold text-sm">
@@ -766,7 +786,7 @@ const AdminDashboard = () => {
                           </div>
                         </div>
                       </div>
-                      <div className="flex flex-col space-y-2">
+                      <div className="flex flex-col space-y-2 mt-4 sm:mt-0 sm:ml-4 w-full sm:w-auto">
                         {order.status === 'approved' && order.paymentStatus === 'pending' && (order as any).payment_screenshot && (
                           <Button 
                             size="sm" 

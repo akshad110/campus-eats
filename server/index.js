@@ -26,9 +26,7 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 // Debug: Check if Razorpay env vars are loaded
-console.log("🔍 Checking Razorpay environment variables...");
-console.log("RAZORPAY_KEY_ID:", process.env.RAZORPAY_KEY_ID ? "✅ SET" : "❌ NOT SET");
-console.log("RAZORPAY_KEY_SECRET:", process.env.RAZORPAY_KEY_SECRET ? "✅ SET" : "❌ NOT SET");
+// Razorpay environment variables checked
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -53,17 +51,17 @@ cloudinary.config({
 let razorpay;
 try {
   if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-    console.warn("⚠️ Razorpay keys not configured. Payment features will be disabled.");
+    // Razorpay keys not configured
     razorpay = null;
   } else {
     razorpay = new Razorpay({
       key_id: process.env.RAZORPAY_KEY_ID,
       key_secret: process.env.RAZORPAY_KEY_SECRET,
     });
-    console.log("✅ Razorpay initialized successfully");
+    // Razorpay initialized successfully
   }
 } catch (error) {
-  console.error("❌ Razorpay initialization error:", error);
+  // Razorpay initialization error
   razorpay = null;
 }
 
@@ -107,16 +105,11 @@ if (requiresSSL) {
   dbConfig.ssl = {
     rejectUnauthorized: false
   };
-  console.log("🔒 SSL enabled for database connection");
+  // SSL enabled for database connection
 }
 
 // Log connection details (without password)
-console.log("🔗 Database Configuration:");
-console.log(`   Host: ${dbConfig.host}`);
-console.log(`   Port: ${dbConfig.port}`);
-console.log(`   Database: ${dbConfig.database}`);
-console.log(`   User: ${dbConfig.user}`);
-console.log(`   SSL: ${requiresSSL ? 'Enabled' : 'Disabled'}`);
+// Database configuration loaded
 
 const pool = mysql.createPool(dbConfig);
 
@@ -131,9 +124,9 @@ const io = new SocketIOServer(httpServer, {
 
 // Socket.io connection
 io.on("connection", (socket) => {
-  console.log("Socket connected:", socket.id);
+  // Socket connected
   socket.on("disconnect", () => {
-    console.log("Socket disconnected:", socket.id);
+    // Socket disconnected
   });
 });
 
@@ -185,10 +178,10 @@ async function createTables(connection) {
       await connection.execute(`
         ALTER TABLE shops ADD COLUMN closed BOOLEAN DEFAULT FALSE
       `);
-      console.log("✅ Added closed column to shops table");
+      // Added closed column to shops table
     } catch (err) {
       if (!err.message.includes("Duplicate column name")) {
-        console.log("ℹ️ Could not add closed column:", err.message);
+        // Could not add closed column
       }
     }
     
@@ -198,7 +191,7 @@ async function createTables(connection) {
       await connection.execute(`
         ALTER TABLE shops MODIFY COLUMN payment_screenshot LONGTEXT
       `);
-      console.log("✅ Updated shops.payment_screenshot column to LONGTEXT");
+      // Updated shops.payment_screenshot column
     } catch (err) {
       // If column doesn't exist, add it
       if (err.message.includes("Unknown column")) {
@@ -206,12 +199,12 @@ async function createTables(connection) {
           await connection.execute(`
             ALTER TABLE shops ADD COLUMN payment_screenshot LONGTEXT NULL
           `);
-          console.log("✅ Added payment_screenshot column to shops table");
+          // Added payment_screenshot column to shops table
         } catch (addErr) {
-          console.log("ℹ️ Could not add payment_screenshot column:", addErr.message);
+          // Could not add payment_screenshot column
         }
       } else {
-        console.log("ℹ️ shops.payment_screenshot column update:", err.message);
+        // shops.payment_screenshot column update
       }
     }
 
@@ -248,8 +241,10 @@ async function createTables(connection) {
         order_number INT NULL,
         estimated_pickup_time TIMESTAMP NULL,
         actual_pickup_time TIMESTAMP NULL,
-        payment_status ENUM('pending', 'completed', 'failed', 'refunded') NULL DEFAULT NULL,
+        payment_status ENUM('pending', 'completed', 'failed', 'refund_processing', 'refunded') NULL DEFAULT NULL,
         payment_transaction_id VARCHAR(255) NULL,
+        refund_id VARCHAR(255) NULL,
+        refund_status VARCHAR(50) NULL,
         payment_method ENUM('cash', 'card', 'digital_wallet', 'upi') NULL,
         payment_screenshot LONGTEXT NULL,
         notes TEXT,
@@ -268,10 +263,22 @@ async function createTables(connection) {
       await connection.execute(`
         ALTER TABLE orders ADD COLUMN order_number INT NULL
       `);
-      console.log("✅ Added order_number column to orders table");
+      // Added order_number column to orders table
     } catch (err) {
       if (!err.message.includes("Duplicate column name")) {
-        console.log("ℹ️ Could not add order_number column:", err.message);
+        // Could not add order_number column
+      }
+    }
+    
+    // Add preparation_time column if it doesn't exist
+    try {
+      await connection.execute(`
+        ALTER TABLE orders ADD COLUMN preparation_time INT NULL
+      `);
+      // Added preparation_time column to orders table
+    } catch (err) {
+      if (!err.message.includes("Duplicate column name")) {
+        // Could not add preparation_time column
       }
     }
     
@@ -283,11 +290,11 @@ async function createTables(connection) {
       await connection.execute(`
         ALTER TABLE orders MODIFY COLUMN payment_status ENUM('pending', 'completed', 'failed', 'refunded') NULL DEFAULT NULL
       `);
-      console.log("✅ Modified payment_status column to allow NULL");
+      // Modified payment_status column to allow NULL
     } catch (err) {
       // Check if error is because column already has the correct definition
       if (err.message.includes("same as current") || err.message.includes("Duplicate")) {
-        console.log("✅ payment_status column already allows NULL");
+        // payment_status column already allows NULL
       } else {
         // Try to check current state and provide helpful message
         try {
@@ -302,17 +309,16 @@ async function createTables(connection) {
           if (columnInfo.length > 0) {
             const isNullable = columnInfo[0].IS_NULLABLE === 'YES';
             const currentType = columnInfo[0].COLUMN_TYPE;
-            console.log(`📊 payment_status column: ${currentType}, NULL allowed: ${isNullable}`);
+            // payment_status column state checked
             
             if (!isNullable) {
-              console.error("❌ CRITICAL: payment_status column does NOT allow NULL. Manual database fix required!");
-              console.error("   Run this SQL manually: ALTER TABLE orders MODIFY COLUMN payment_status ENUM('pending', 'completed', 'failed', 'refunded') NULL DEFAULT NULL;");
+              // CRITICAL: payment_status column does NOT allow NULL. Manual database fix required!
             }
           }
         } catch (checkErr) {
-          console.log("⚠️ Could not check payment_status column state:", checkErr.message);
+          // Could not check payment_status column state
         }
-        console.log("⚠️ Could not modify payment_status column:", err.message);
+        // Could not modify payment_status column
       }
     }
     
@@ -321,11 +327,10 @@ async function createTables(connection) {
       await connection.execute(`
         ALTER TABLE orders MODIFY COLUMN status ENUM('pending_approval', 'approved', 'rejected', 'payment_pending', 'payment_completed', 'payment_failed', 'preparing', 'ready', 'fulfilled', 'cancelled', 'expired') DEFAULT 'pending_approval'
       `);
-      console.log("✅ Added 'expired' to orders.status ENUM");
+      // Added 'expired' to orders.status ENUM
     } catch (err) {
       if (!err.message.includes("same as current") && !err.message.includes("Duplicate")) {
-        console.log("ℹ️ Could not modify status ENUM:", err.message);
-        console.error("   Run this SQL manually: ALTER TABLE orders MODIFY COLUMN status ENUM('pending_approval', 'approved', 'rejected', 'payment_pending', 'payment_completed', 'payment_failed', 'preparing', 'ready', 'fulfilled', 'cancelled', 'expired') DEFAULT 'pending_approval';");
+        // Could not modify status ENUM
       }
     }
 
@@ -334,11 +339,44 @@ async function createTables(connection) {
       await connection.execute(`
         ALTER TABLE orders ADD COLUMN payment_transaction_id VARCHAR(255) NULL
       `);
-      console.log("✅ Added payment_transaction_id column to orders table");
+      // Added payment_transaction_id column to orders table
     } catch (err) {
       if (!err.message.includes("Duplicate column name")) {
-        console.log("ℹ️ Could not add payment_transaction_id column:", err.message);
+        // Could not add payment_transaction_id column
       }
+    }
+
+    // Add refund_id and refund_status columns if they don't exist
+    try {
+      await connection.execute(`
+        ALTER TABLE orders ADD COLUMN refund_id VARCHAR(255) NULL
+      `);
+      // Added refund_id column to orders table
+    } catch (err) {
+      if (!err.message.includes("Duplicate column name")) {
+        // Could not add refund_id column
+      }
+    }
+
+    try {
+      await connection.execute(`
+        ALTER TABLE orders ADD COLUMN refund_status VARCHAR(50) NULL
+      `);
+      // Added refund_status column to orders table
+    } catch (err) {
+      if (!err.message.includes("Duplicate column name")) {
+        // Could not add refund_status column
+      }
+    }
+
+    // Update payment_status ENUM to include 'refund_processing'
+    try {
+      await connection.execute(`
+        ALTER TABLE orders MODIFY COLUMN payment_status ENUM('pending', 'completed', 'failed', 'refund_processing', 'refunded') NULL DEFAULT NULL
+      `);
+      // Updated payment_status ENUM to include 'refund_processing'
+    } catch (err) {
+      // Could not update payment_status ENUM
     }
 
     // Add payment_screenshot column if it doesn't exist, or modify if it exists but is wrong type
@@ -347,7 +385,7 @@ async function createTables(connection) {
       await connection.execute(`
         ALTER TABLE orders MODIFY COLUMN payment_screenshot LONGTEXT
       `);
-      console.log("✅ Updated orders.payment_screenshot column to LONGTEXT");
+      // Updated orders.payment_screenshot column to LONGTEXT
     } catch (err) {
       // If column doesn't exist, add it
       if (err.message.includes("Unknown column")) {
@@ -355,12 +393,12 @@ async function createTables(connection) {
           await connection.execute(`
             ALTER TABLE orders ADD COLUMN payment_screenshot LONGTEXT NULL
           `);
-          console.log("✅ Added payment_screenshot column to orders table");
+          // Added payment_screenshot column to orders table
         } catch (addErr) {
-          console.log("ℹ️ Could not add payment_screenshot column:", addErr.message);
+          // Could not add payment_screenshot column
         }
       } else {
-        console.log("ℹ️ orders.payment_screenshot column update:", err.message);
+        // orders.payment_screenshot column update
       }
     }
 
@@ -397,15 +435,14 @@ async function createTables(connection) {
       await connection.execute(`
         ALTER TABLE notifications MODIFY COLUMN type ENUM('order_update', 'token_ready', 'promotional', 'system', 'order_expired') NOT NULL
       `);
-      console.log("✅ Added 'order_expired' to notifications.type ENUM");
+      // Added 'order_expired' to notifications.type ENUM
     } catch (err) {
       if (!err.message.includes("same as current") && !err.message.includes("Duplicate")) {
-        console.log("ℹ️ Could not modify notifications.type ENUM:", err.message);
-        console.error("   Run this SQL manually: ALTER TABLE notifications MODIFY COLUMN type ENUM('order_update', 'token_ready', 'promotional', 'system', 'order_expired') NOT NULL;");
+        // Could not modify notifications.type ENUM
       }
     }
 
-    console.log("📋 All tables created successfully");
+    // All tables created successfully
   } catch (err) {
     console.error("❌ Error creating tables:", err);
     throw err;
@@ -414,11 +451,11 @@ async function createTables(connection) {
 
 async function initializeDatabase() {
   try {
-    console.log("🔄 Attempting to connect to database...");
+    // Attempting to connect to database
     
     // Test connection first
     const connection = await pool.getConnection();
-    console.log("✅ Database connection established");
+    // Database connection established
     
     // For Aiven and other cloud providers, database already exists
     // Only create if it doesn't exist (for local development)
@@ -428,7 +465,7 @@ async function initializeDatabase() {
         await connection.changeUser({ database: "campuseats" });
       } catch (dbError) {
         // Database might already exist or we might not have CREATE permission
-        console.log("ℹ️  Using existing database or no CREATE permission");
+        // Using existing database or no CREATE permission
         if (dbConfig.database) {
           await connection.changeUser({ database: dbConfig.database });
         }
@@ -442,7 +479,7 @@ async function initializeDatabase() {
     
     await createTables(connection);
     connection.release();
-    console.log("🗄️ Database initialized successfully");
+    // Database initialized successfully
     return true;
   } catch (error) {
     console.error("❌ Database initialization failed:", error);
@@ -461,9 +498,7 @@ async function initializeDatabase() {
       console.error("   ⚠️  Database doesn't exist - check DB_NAME");
     }
     
-    console.log(
-      "⚠️  Server will continue without MySQL - API calls will return errors",
-    );
+    // Server will continue without MySQL - API calls will return errors
     return false;
   }
 }
@@ -491,7 +526,7 @@ app.post("/api/upload-image", upload.single('image'), async (req, res) => {
     if (!process.env.CLOUDINARY_CLOUD_NAME || 
         !process.env.CLOUDINARY_API_KEY || 
         !process.env.CLOUDINARY_API_SECRET) {
-      console.warn("⚠️ Cloudinary not configured - returning base64 fallback");
+      // Cloudinary not configured - returning base64 fallback
       // Fallback: return base64 if Cloudinary not configured
       const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
       return res.json({
@@ -595,16 +630,12 @@ async function startServer() {
   try {
     const dbInitialized = await initializeDatabase();
     if (!dbInitialized) {
-      console.log("🔄 Starting server without MySQL database...");
+      // Starting server without MySQL database
     }
     httpServer.listen(PORT, "0.0.0.0", () => {
-      console.log(
-        `🚀 CampusEats API Server (with WebSocket) running on port ${PORT}`,
-      );
+      // CampusEats API Server (with WebSocket) running
       if (!dbInitialized) {
-        console.log(
-          "⚠️ MySQL not available - frontend will use localStorage fallback",
-        );
+        // MySQL not available - frontend will use localStorage fallback
       }
     });
 
@@ -612,7 +643,7 @@ async function startServer() {
     httpServer.on('error', (error) => {
       if (error.code === 'EADDRINUSE') {
         console.error(`❌ Port ${PORT} is already in use.`);
-        console.log('💡 Waiting for port to be released... (nodemon will retry automatically)');
+        // Waiting for port to be released
         // Don't exit - let nodemon handle the restart after file changes
       } else {
         console.error("❌ Server error:", error);
@@ -630,6 +661,18 @@ function generateId(prefix = "") {
   const timestamp = Date.now();
   const random = Math.random().toString(36).substr(2, 9);
   return `${prefix}${timestamp}_${random}`;
+}
+
+/**
+ * Get current time in IST (India Standard Time) and add minutes to it
+ * @param {number} minutesToAdd - Minutes to add to current IST time
+ * @returns {string} MySQL DATETIME format string (YYYY-MM-DD HH:mm:ss) in IST
+ */
+function getISTTimeWithOffset(minutesToAdd = 0) {
+  const istTime = dayjs().tz('Asia/Kolkata');
+  const futureTime = istTime.add(minutesToAdd, 'minute');
+  // Format as MySQL DATETIME: YYYY-MM-DD HH:mm:ss (no timezone info)
+  return futureTime.format('YYYY-MM-DD HH:mm:ss');
 }
 
 // ======================== AUTH ROUTES =========================
@@ -747,9 +790,7 @@ app.put("/api/users/:id/change-password", async (req, res) => {
 
 app.post("/api/shops", async (req, res) => {
   try {
-    console.log("📝 Shop creation request received:", {
-      body: { ...req.body, image: req.body.image ? '[image provided]' : null }
-    });
+    // Shop creation request received
 
     const { name, description, category, location, phone, image, ownerId, upiId, closed } = req.body;
 
@@ -769,7 +810,7 @@ app.post("/api/shops", async (req, res) => {
 
     // Remove category validation - accept any category value
     // The database will accept any VARCHAR(100) value
-    console.log("✅ Required fields validated");
+    // Required fields validated
 
     // Verify owner exists
     try {
@@ -781,7 +822,7 @@ app.post("/api/shops", async (req, res) => {
           error: "Invalid ownerId: User not found" 
         });
       }
-      console.log("✅ Owner verified:", ownerId);
+      // Owner verified
     } catch (dbError) {
       console.error("❌ Database error checking owner:", dbError);
       return res.status(500).json({ 
@@ -791,7 +832,7 @@ app.post("/api/shops", async (req, res) => {
     }
 
     const id = `shop_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-    console.log("🆔 Generated shop ID:", id);
+    // Generated shop ID
 
     // Convert closed to MySQL boolean (0 or 1)
     const closedValue = closed === true ? 1 : 0;
@@ -810,18 +851,7 @@ app.post("/api/shops", async (req, res) => {
       closedValue
     ];
 
-    console.log("💾 Inserting shop with values:", {
-      id,
-      name,
-      category,
-      ownerId,
-      hasDescription: !!description,
-      hasLocation: !!location,
-      hasPhone: !!phone,
-      hasImage: !!image,
-      hasUpiId: !!upiId,
-      closed: closedValue
-    });
+    // Inserting shop
 
     await pool.execute(
       `
@@ -831,7 +861,7 @@ app.post("/api/shops", async (req, res) => {
       insertValues
     );
 
-    console.log("✅ Shop inserted successfully");
+    // Shop inserted successfully
 
     const [shops] = await pool.execute("SELECT * FROM shops WHERE id = ?", [id]);
 
@@ -843,7 +873,7 @@ app.post("/api/shops", async (req, res) => {
       });
     }
 
-    console.log("✅ Shop retrieved successfully:", shops[0].name);
+    // Shop retrieved successfully
     res.json({ success: true, data: shops[0] });
   } catch (error) {
     console.error("❌ Create shop error:", error);
@@ -887,12 +917,7 @@ app.put("/api/shops/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const { name, description, category, location, phone, image, upiId, closed, payment_screenshot } = req.body;
-    console.log('Shop update payload:', { 
-      id, 
-      hasUpiId: upiId !== undefined, 
-      hasScreenshot: payment_screenshot !== undefined,
-      screenshotLength: payment_screenshot ? payment_screenshot.length : 0
-    }); // DEBUG LOG
+    // Shop update payload // DEBUG LOG
     let updateFields = [];
     let params = [];
     if (name) { updateFields.push("name = ?"); params.push(name); }
@@ -914,7 +939,7 @@ app.put("/api/shops/:id", async (req, res) => {
       return res.status(400).json({ success: false, error: "No fields to update" });
     }
     params.push(id);
-    console.log('SQL Update:', `UPDATE shops SET ${updateFields.join(", ")}, updated_at = NOW() WHERE id = ?`);
+    // SQL Update
     await pool.execute(
       `UPDATE shops SET ${updateFields.join(", ")}, updated_at = NOW() WHERE id = ?`,
       params
@@ -1112,13 +1137,13 @@ app.put("/api/menu-items/:id", async (req, res) => {
       return res.status(400).json({ success: false, error: "No fields to update" });
     }
     params.push(id);
-    console.log('Updating menu item:', id, updateFields, params);
+    // Updating menu item
     await pool.execute(
       `UPDATE menu_items SET ${updateFields.join(", ")}, updated_at = NOW() WHERE id = ?`,
       params
     );
     const [items] = await pool.execute("SELECT * FROM menu_items WHERE id = ?", [id]);
-    console.log('Menu item after update:', items);
+    // Menu item after update
     if (!items || items.length === 0) {
       return res.status(404).json({ success: false, error: "Menu item not found" });
     }
@@ -1290,7 +1315,7 @@ setInterval(async () => {
         order: { ...order, status: newStatus, payment_status: 'failed' },
       });
 
-      console.log(`[AUTO-EXPIRE] Order ${order.id} moved to status: ${newStatus} due to payment timeout.`);
+      // Order moved to status due to payment timeout
     }
   } catch (err) {
     console.error('[AUTO-EXPIRE] Error auto-updating unpaid approved orders:', err);
@@ -1414,9 +1439,7 @@ app.get('/api/analytics/:shopId', async (req, res) => {
 
 app.post("/api/orders", async (req, res) => {
   try {
-    console.log("📝 Order creation request received:", {
-      body: { ...req.body, items: req.body.items ? `[${req.body.items.length} items]` : null }
-    });
+    // Order creation request received
 
     const {
       user_id,
@@ -1465,7 +1488,7 @@ app.post("/api/orders", async (req, res) => {
     }
 
     const id = `order_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-    console.log("🆔 Generated order ID:", id);
+    // Generated order ID
 
     // Get the current max order_number for this shop
     let nextOrderNumber = 1;
@@ -1475,9 +1498,9 @@ app.post("/api/orders", async (req, res) => {
         [shop_id]
       );
       nextOrderNumber = (rows[0]?.maxOrder || 0) + 1;
-      console.log("🔢 Next order number for shop:", nextOrderNumber);
+      // Next order number for shop
     } catch (err) {
-      console.warn("⚠️ Could not get max order_number, using 1:", err.message);
+      // Could not get max order_number, using 1
       // If order_number column doesn't exist yet, it will be added by migration
       // Continue with order_number = 1
     }
@@ -1496,14 +1519,7 @@ app.post("/api/orders", async (req, res) => {
       nextOrderNumber
     ];
 
-    console.log("💾 Inserting order with values:", {
-      id,
-      user_id,
-      shop_id,
-      itemsCount: items.length,
-      total_amount,
-      order_number: nextOrderNumber
-    });
+    // Inserting order
 
     await pool.execute(
       `INSERT INTO orders (id, user_id, shop_id, items, total_amount, status, payment_status, token_number, estimated_pickup_time, notes, order_number)
@@ -1511,7 +1527,7 @@ app.post("/api/orders", async (req, res) => {
       insertValues
     );
 
-    console.log("✅ Order inserted successfully");
+    // Order inserted successfully
 
     const [orders] = await pool.execute("SELECT * FROM orders WHERE id = ?", [id]);
     
@@ -1523,7 +1539,7 @@ app.post("/api/orders", async (req, res) => {
       });
     }
 
-    console.log("✅ Order retrieved successfully:", orders[0].id);
+    // Order retrieved successfully
     res.json({ success: true, data: orders[0] });
   } catch (error) {
     console.error("❌ Create order error:", error);
@@ -1604,17 +1620,7 @@ app.put("/api/orders/:id/status", async (req, res) => {
     const { id } = req.params;
     const { status, payment_status, estimated_pickup_time, rejection_reason, transaction_id, preparation_time, payment_screenshot } = req.body;
     
-    console.log("📝 Order status update request:", {
-      orderId: id,
-      status,
-      payment_status: payment_status === null ? 'NULL' : payment_status,
-      payment_status_type: typeof payment_status,
-      preparation_time,
-      hasEstimatedPickupTime: !!estimated_pickup_time,
-      hasRejectionReason: !!rejection_reason,
-      hasPaymentScreenshot: !!payment_screenshot,
-      fullBody: req.body
-    });
+    // Order status update request
 
     let updateFields = [];
     let params = [];
@@ -1636,18 +1642,24 @@ app.put("/api/orders/:id/status", async (req, res) => {
         // This is a MySQL limitation - we must use literal NULL in SQL
         updateFields.push("payment_status = NULL");
         // Don't add to params array for NULL - this is critical!
-        console.log("🔧 Setting payment_status to NULL (using SQL literal)");
+        // Setting payment_status to NULL (using SQL literal)
       } else {
         // For actual enum values, use parameterized query
         updateFields.push("payment_status = ?");
         params.push(payment_status);
-        console.log(`🔧 Setting payment_status to: ${payment_status}`);
+        // Setting payment_status
       }
       // NULL means payment not started yet (show Pay Now button)
       // 'pending' means payment screenshot uploaded (waiting for approval)
       // 'completed' means payment approved
     }
 
+    // Handle preparation_time - store it in the database
+    if (preparation_time !== undefined && preparation_time !== null) {
+      updateFields.push("preparation_time = ?");
+      params.push(preparation_time);
+    }
+    
     // Handle estimated_pickup_time - can be provided directly or calculated from preparation_time
     if (estimated_pickup_time !== undefined) {
       updateFields.push("estimated_pickup_time = ?");
@@ -1661,18 +1673,17 @@ app.put("/api/orders/:id/status", async (req, res) => {
             mysqlDateTime = date.toISOString().slice(0, 19).replace('T', ' ');
           }
         } catch (e) {
-          console.warn("⚠️ Could not parse estimated_pickup_time:", e);
+          // Could not parse estimated_pickup_time
         }
       }
       params.push(mysqlDateTime ?? null);
     } else if (preparation_time !== undefined && preparation_time !== null) {
       // Convert preparation_time (minutes) to estimated_pickup_time (timestamp)
-      const pickupDate = new Date(Date.now() + preparation_time * 60000);
-      // Format as MySQL DATETIME: YYYY-MM-DD HH:mm:ss (no milliseconds, no timezone)
-      const pickupTime = pickupDate.toISOString().slice(0, 19).replace('T', ' ');
+      // Use current IST time + preparation_time
+      const pickupTime = getISTTimeWithOffset(preparation_time);
       updateFields.push("estimated_pickup_time = ?");
       params.push(pickupTime);
-      console.log(`⏰ Calculated pickup time: ${pickupTime} from ${preparation_time} minutes`);
+      // Calculated pickup time in IST
     }
 
     // Handle rejection_reason
@@ -1687,9 +1698,8 @@ app.put("/api/orders/:id/status", async (req, res) => {
       params.push(payment_screenshot ?? null); 
     }
 
-    // Note: transaction_id and preparation_time columns don't exist in orders table
-    // preparation_time is converted to estimated_pickup_time above
-    // transaction_id is ignored (not stored in orders table)
+    // Note: transaction_id is ignored (not stored in orders table)
+    // preparation_time is now stored in the orders table and used to calculate estimated_pickup_time
 
     // If moving to 'preparing', assign next token_number if not already set
     if (status === 'preparing') {
@@ -1709,10 +1719,10 @@ app.put("/api/orders/:id/status", async (req, res) => {
           tokenNumberToSet = (rows[0]?.maxToken || 0) + 1;
           updateFields.push("token_number = ?");
           params.push(tokenNumberToSet);
-          console.log(`🎫 Assigned token number: ${tokenNumberToSet}`);
+          // Assigned token number
         }
       } catch (err) {
-        console.warn("⚠️ Could not assign token number:", err.message);
+        // Could not assign token number
         // Continue without token number assignment
       }
     }
@@ -1727,13 +1737,7 @@ app.put("/api/orders/:id/status", async (req, res) => {
     // Build the SQL query
     const sqlQuery = `UPDATE orders SET ${updateFields.join(", ")}, updated_at = NOW() WHERE id = ?`;
     
-    console.log("💾 Updating order with SQL:", sqlQuery);
-    console.log("📊 Parameters count:", params.length);
-    console.log("📊 Parameters:", params.map((p, i) => {
-      if (p === null) return `[${i}]: NULL`;
-      if (typeof p === 'string' && p.length > 50) return `[${i}]: ${p.substring(0, 50)}...`;
-      return `[${i}]: ${p}`;
-    }));
+    // Updating order with SQL
 
     try {
       await pool.execute(sqlQuery, params);
@@ -1749,7 +1753,7 @@ app.put("/api/orders/:id/status", async (req, res) => {
       throw sqlError;
     }
 
-    console.log("✅ Order updated successfully");
+    // Order updated successfully
 
     const [orders] = await pool.execute("SELECT * FROM orders WHERE id = ?", [id]);
     if (orders.length === 0) {
@@ -1790,7 +1794,7 @@ app.put("/api/orders/:id/status", async (req, res) => {
           shopId: updatedOrder.shop_id,
           activeTokens: activeTokens
         });
-        console.log(`🎫 Updated token count for shop ${updatedOrder.shop_id}: ${activeTokens}`);
+        // Updated token count for shop
       } catch (tokenError) {
         console.error("Error updating token count:", tokenError);
       }
@@ -2015,6 +2019,113 @@ app.get("/api/developer/shopowners", async (req, res) => {
   }
 });
 
+// Developer Dashboard - Get all refund orders (not collected orders)
+app.get("/api/developer/refund-orders", async (req, res) => {
+  try {
+    // Get all cancelled orders (not collected orders) - show all regardless of refund status
+    const [orders] = await pool.execute(
+      `SELECT 
+        o.*,
+        u.name as user_name,
+        u.email as user_email,
+        s.name as shop_name
+      FROM orders o
+      LEFT JOIN users u ON o.user_id = u.id
+      LEFT JOIN shops s ON o.shop_id = s.id
+      WHERE o.status = 'cancelled' 
+        AND o.payment_status IN ('refund_processing', 'refunded', 'completed')
+      ORDER BY o.created_at DESC`
+    );
+    
+    res.json({ success: true, data: orders });
+  } catch (error) {
+    console.error("Get refund orders error:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Developer Dashboard - Mark refund as completed
+app.post("/api/developer/mark-refund-completed", async (req, res) => {
+  try {
+    const { order_id } = req.body;
+    
+    if (!order_id) {
+      return res.status(400).json({ success: false, error: "Missing order_id" });
+    }
+
+    const connection = await pool.getConnection();
+    try {
+      // Get order details
+      const [orderRows] = await connection.execute(
+        `SELECT user_id, total_amount, refund_id FROM orders WHERE id = ?`,
+        [order_id]
+      );
+
+      if (orderRows.length === 0) {
+        return res.status(404).json({ success: false, error: "Order not found" });
+      }
+
+      const order = orderRows[0];
+
+      // Update order status to refunded
+      await connection.execute(
+        `UPDATE orders 
+         SET payment_status = 'refunded',
+             refund_status = 'processed',
+             updated_at = NOW()
+         WHERE id = ?`,
+        [order_id]
+      );
+
+      // Create notification for user
+      const userId = order.user_id;
+      const baseAmount = Number(order.total_amount || 0);
+      const refundAmount = baseAmount; // After deducting ₹5
+
+      if (userId) {
+        await connection.execute(
+          `INSERT INTO notifications (id, user_id, title, message, type, is_read, metadata, created_at) 
+           VALUES (?, ?, ?, ?, ?, false, ?, NOW())`,
+          [
+            `notif_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+            userId,
+            'Refund Completed',
+            `Your refund of ₹${refundAmount.toFixed(2)} for order #${order_id.slice(-8)} has been successfully processed and credited to your account.`,
+            'order_update',
+            JSON.stringify({ order_id: order_id, status: 'cancelled', payment_status: 'refunded', refund_id: order.refund_id }),
+          ]
+        );
+      }
+
+      // Emit socket event for real-time update
+      io.emit("order_status_update", {
+        orderId: order_id,
+        status: "cancelled",
+        payment_status: "refunded",
+        refund_status: "processed",
+        userId: userId,
+        order: {
+          id: order_id,
+          status: 'cancelled',
+          payment_status: 'refunded',
+          refund_id: order.refund_id,
+          refund_status: 'processed',
+        },
+      });
+
+      res.json({
+        success: true,
+        message: "Refund marked as completed successfully",
+      });
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error("Mark refund completed error:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 app.post('/api/feedback', async (req, res) => {
   const { orderId, shopId, userId, rating, feedback } = req.body;
   if (!orderId || !shopId || !userId || !rating) {
@@ -2179,30 +2290,49 @@ app.post("/api/razorpay/verify-payment", async (req, res) => {
     // Update order status in database - set payment_status to completed and status to preparing
     const connection = await pool.getConnection();
     try {
-      // Get order details (shop_id). We don't store preparation_time in DB, so use a safe default.
+      // Get order details (shop_id and preparation_time set by shopkeeper when approving)
       const [orderRows] = await connection.execute(
-        `SELECT shop_id FROM orders WHERE id = ?`,
+        `SELECT shop_id, preparation_time, estimated_pickup_time FROM orders WHERE id = ?`,
         [orderId]
       );
       
       const shopId = orderRows.length > 0 ? orderRows[0].shop_id : null;
-      // Default preparation time in minutes (can be adjusted later if column is added)
-      const prepTime = 15;
+      const existingPrepTime = orderRows[0]?.preparation_time;
+      const existingPickupTime = orderRows[0]?.estimated_pickup_time;
       
-      // Calculate estimated pickup time
-      const pickupDate = new Date(Date.now() + prepTime * 60000);
-      const pickupTime = pickupDate.toISOString().slice(0, 19).replace('T', ' ');
+      // Use preparation_time from database (set by shopkeeper), or default to 15 minutes
+      const prepTime = existingPrepTime || 15;
+      
+      // Calculate estimated pickup time only if it doesn't already exist
+      // If order was already approved with a pickup time, preserve it
+      let pickupTime = existingPickupTime;
+      if (!pickupTime) {
+        // Calculate from current IST time + preparation_time
+        pickupTime = getISTTimeWithOffset(prepTime);
+      }
 
       // Update order: payment completed and status to preparing
+      // Only update estimated_pickup_time if it wasn't already set
+      let updateFields = [
+        "payment_status = 'completed'",
+        "status = 'preparing'",
+        "payment_transaction_id = ?",
+        "updated_at = NOW()"
+      ];
+      let updateParams = [razorpay_payment_id];
+      
+      if (!existingPickupTime && pickupTime) {
+        updateFields.push("estimated_pickup_time = ?");
+        updateParams.push(pickupTime);
+      }
+      
+      updateParams.push(orderId);
+      
       await connection.execute(
         `UPDATE orders 
-         SET payment_status = 'completed', 
-             status = 'preparing',
-             payment_transaction_id = ?,
-             estimated_pickup_time = ?,
-             updated_at = NOW()
+         SET ${updateFields.join(', ')}
          WHERE id = ?`,
-        [razorpay_payment_id, pickupTime, orderId]
+        updateParams
       );
 
       // Create notification for user
@@ -2222,7 +2352,7 @@ app.post("/api/razorpay/verify-payment", async (req, res) => {
             'Payment Successful',
             `Your payment has been confirmed! Your order is now being prepared. Estimated time: ${prepTime} minutes.`,
             'order_update',
-            JSON.stringify({ order_id: orderId, status: 'preparing', payment_status: 'completed', preparation_time: prepTime }),
+            JSON.stringify({ order_id: orderId, status: 'preparing', payment_status: 'completed', preparation_time: prepTime, estimated_pickup_time: pickupTime }),
           ]
         );
       }
@@ -2263,6 +2393,144 @@ app.post("/api/razorpay/verify-payment", async (req, res) => {
       success: false,
       error: "Failed to verify payment",
       details: error.message,
+    });
+  }
+});
+
+// Process Razorpay refund
+app.post("/api/razorpay/refund", async (req, res) => {
+  try {
+    if (!razorpay || !process.env.RAZORPAY_KEY_SECRET) {
+      return res.status(500).json({
+        success: false,
+        error: "Razorpay is not configured. Please check your environment variables.",
+      });
+    }
+
+    const { payment_id, order_id, amount } = req.body;
+
+    if (!payment_id || !order_id) {
+      return res.status(400).json({
+        success: false,
+        error: "Missing required parameters: payment_id and order_id",
+      });
+    }
+
+    // Get order details to verify payment status and amount
+    const connection = await pool.getConnection();
+    try {
+      const [orderRows] = await connection.execute(
+        `SELECT payment_status, total_amount, user_id, payment_transaction_id FROM orders WHERE id = ?`,
+        [order_id]
+      );
+
+      if (orderRows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: "Order not found",
+        });
+      }
+
+      const order = orderRows[0];
+
+      // Check if payment was completed
+      if (order.payment_status !== 'completed') {
+        return res.status(400).json({
+          success: false,
+          error: "Cannot refund: Payment was not completed for this order",
+        });
+      }
+
+      // Verify payment_transaction_id matches
+      if (order.payment_transaction_id !== payment_id) {
+        return res.status(400).json({
+          success: false,
+          error: "Payment ID mismatch",
+        });
+      }
+
+      // Calculate refund amount
+      // User paid: base_amount + ₹5 platform fee
+      // For not collected orders, we deduct ₹5 (preparation cost) from the refund
+      // So refund = (base_amount + ₹5) - ₹5 = base_amount
+      const baseAmount = Number(order.total_amount);
+      const chargedAmount = baseAmount + 5; // User was charged base + ₹5 platform fee
+      const refundAmountRupees = chargedAmount - 5; // Deduct ₹5 for preparation cost
+      const refundAmount = Math.round(refundAmountRupees * 100); // Convert to paise
+
+      // Create refund via Razorpay API (partial refund)
+      const refundOptions = {
+        amount: refundAmount, // Amount in paise
+      };
+
+      // Call Razorpay refund API
+      const refund = await razorpay.payments.refund(payment_id, refundOptions);
+
+      // Update order status - set to refund_processing initially
+      // The refund status will be checked later and updated to 'refunded' when completed
+      await connection.execute(
+        `UPDATE orders 
+         SET payment_status = 'refund_processing',
+             status = 'cancelled',
+             refund_id = ?,
+             refund_status = ?,
+             updated_at = NOW()
+         WHERE id = ?`,
+        [refund.id, refund.status || 'pending', order_id]
+      );
+
+      // Create notification for user
+      const userId = order.user_id;
+      if (userId) {
+        const refundAmountDisplay = (refundAmount / 100).toFixed(2);
+        const chargedAmountDisplay = chargedAmount.toFixed(2);
+        await connection.execute(
+          `INSERT INTO notifications (id, user_id, title, message, type, is_read, metadata, created_at) 
+           VALUES (?, ?, ?, ?, ?, false, ?, NOW())`,
+          [
+            `notif_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+            userId,
+            'Order Not Collected - Refund Initiated',
+            `Your order #${order_id.slice(-8)} was not collected. A refund of ₹${refundAmountDisplay} (₹${chargedAmountDisplay} paid - ₹5 preparation fee) has been initiated and will be credited to your account within 2-4 working days.`,
+            'order_update',
+            JSON.stringify({ order_id: order_id, status: 'cancelled', payment_status: 'refund_processing', refund_id: refund.id, refund_status: refund.status, refund_amount: refundAmountDisplay, charged_amount: chargedAmountDisplay }),
+          ]
+        );
+      }
+
+      // Emit socket event for real-time update
+      io.emit("order_status_update", {
+        orderId: order_id,
+        status: "cancelled",
+        payment_status: "refund_processing",
+        refund_status: refund.status,
+        userId: userId,
+        order: {
+          id: order_id,
+          status: 'cancelled',
+          payment_status: 'refund_processing',
+          refund_id: refund.id,
+          refund_status: refund.status,
+        },
+      });
+
+      res.json({
+        success: true,
+        refundId: refund.id,
+        message: "Refund processed successfully",
+        amount: refund.amount / 100, // Convert from paise to rupees
+        chargedAmount: chargedAmount,
+        preparationFee: 5,
+      });
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error("Razorpay refund error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to process refund",
+      details: error.message || error.description || "Unknown error",
     });
   }
 });
@@ -2354,7 +2622,7 @@ app.post("/api/send-feedback", async (req, res) => {
 startServer();
 
 process.on("SIGINT", async () => {
-  console.log("\n🛑 Shutting down server...");
+  // Shutting down server
   await pool.end();
   process.exit(0);
 });

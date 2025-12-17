@@ -47,7 +47,7 @@ const DebugShops = () => {
       // Delete orphan shops
       for (const orphanShop of orphanShops) {
         await ApiService.deleteShop(orphanShop.id);
-        console.log(`Forced cleanup: Deleted orphan shop '${orphanShop.name}'`);
+        // Forced cleanup: Deleted orphan shop
       }
     } catch (error) {
       console.error("Forced cleanup error:", error);

@@ -151,11 +151,6 @@ const MenuManagement = () => {
         image: data.image || "",
       };
 
-      console.log(
-        "Creating/updating menu item for shop:",
-        selectedShop.id,
-        menuItemData,
-      );
 
       if (editingItem) {
         // Update existing item
@@ -163,7 +158,7 @@ const MenuManagement = () => {
           editingItem.id,
           menuItemData,
         );
-        console.log("Updated menu item:", updatedItem);
+        // Updated menu item
         toast({
           title: "Menu item updated!",
           description: "Your menu item has been updated successfully.",
@@ -171,7 +166,7 @@ const MenuManagement = () => {
       } else {
         // Create new item
         const newItem = await ApiService.createMenuItem(menuItemData);
-        console.log("Created new menu item:", newItem);
+        // Created new menu item
         toast({
           title: "Menu item created!",
           description: `"${data.name}" has been added to ${selectedShop.name}'s menu.`,
@@ -191,9 +186,6 @@ const MenuManagement = () => {
 
       // Verify the menu items were loaded
       const verifyItems = await ApiService.getMenuItems(selectedShop.id);
-      console.log(
-        `Verified ${verifyItems.length} menu items for shop ${selectedShop.name}`,
-      );
     } catch (error: any) {
       console.error("Menu item save error:", error);
       toast({

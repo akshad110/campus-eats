@@ -28,6 +28,8 @@ import "swiper/css/pagination";
 
 const Landing = () => {
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [showLanguageButton, setShowLanguageButton] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
   const { t } = useTranslation();
 
   useEffect(() => {
@@ -51,11 +53,26 @@ const Landing = () => {
         scrollY = (scrollContainer as HTMLElement).scrollTop;
       }
       
+      // Show/hide scroll to top button
       if (scrollY > 300) {
         setShowScrollTop(true);
       } else {
         setShowScrollTop(false);
       }
+
+      // Hide language button when scrolling down, show when scrolling up or at top
+      if (scrollY < 10) {
+        // Always show at the top
+        setShowLanguageButton(true);
+      } else if (scrollY > lastScrollY && scrollY > 100) {
+        // Scrolling down - hide
+        setShowLanguageButton(false);
+      } else if (scrollY < lastScrollY) {
+        // Scrolling up - show
+        setShowLanguageButton(true);
+      }
+      
+      setLastScrollY(scrollY);
     };
 
     // Check initial scroll position
@@ -68,7 +85,7 @@ const Landing = () => {
       (scrollContainer as HTMLElement).addEventListener("scroll", handleScroll, { passive: true });
       return () => (scrollContainer as HTMLElement).removeEventListener("scroll", handleScroll);
     }
-  }, []);
+  }, [lastScrollY]);
 
   const scrollToTop = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
@@ -142,8 +159,12 @@ const Landing = () => {
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50">
       <Navigation />
 
-      {/* Language Selector - Fixed Position */}
-      <div className="fixed top-20 right-4 sm:right-6 z-50">
+      {/* Language Selector - Fixed Position - Hidden when scrolling down */}
+      <div 
+        className={`fixed top-20 right-4 sm:right-6 z-50 transition-opacity duration-300 ${
+          showLanguageButton ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+      >
         <LanguageSelector />
       </div>
 

@@ -27,6 +27,7 @@ interface RazorpayPaymentProps {
   orderDetails: {
     orderId: string;
     amount: number;
+    baseAmount?: number; // Base amount before platform fee
     items: Array<{
       name: string;
       quantity: number;
@@ -206,7 +207,9 @@ export const RazorpayPayment = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent
+        className="w-[95vw] sm:w-full max-w-md sm:max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6 md:p-8 rounded-xl sm:rounded-2xl"
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center">
             <Lock className="h-5 w-5 mr-2 text-green-600" />
@@ -239,6 +242,19 @@ export const RazorpayPayment = ({
                 </div>
               ))}
               <Separator />
+              {orderDetails.baseAmount && orderDetails.baseAmount !== orderDetails.amount && (
+                <>
+                  <div className="flex justify-between text-sm text-gray-600">
+                    <span>Subtotal</span>
+                    <span>₹{orderDetails.baseAmount.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm text-gray-600">
+                    <span>Platform Fee</span>
+                    <span>₹5.00</span>
+                  </div>
+                  <Separator />
+                </>
+              )}
               <div className="flex justify-between font-semibold">
                 <span>Total</span>
                 <span className="text-green-600">

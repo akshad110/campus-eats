@@ -36,7 +36,7 @@ import { DateRange } from "react-day-picker";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001/api";
 
-type ViewType = "students" | "shopowners" | "settings";
+type ViewType = "students" | "shopowners" | "refunds" | "settings";
 
 interface Student {
   id: string;
@@ -66,23 +66,34 @@ interface ShopOwner {
 }
 
 const DeveloperDashboard = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, isLoading } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  
+  // Redirect if not developer or not loaded yet
+  useEffect(() => {
+    if (!isLoading && (!user || user.role !== "developer")) {
+      navigate("/auth");
+    }
+  }, [user, isLoading, navigate]);
   const [currentView, setCurrentView] = useState<ViewType>("students");
   const [students, setStudents] = useState<Student[]>([]);
   const [shopOwners, setShopOwners] = useState<ShopOwner[]>([]);
+  const [refundOrders, setRefundOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<Student | ShopOwner | null>(null);
+  const [processingRefund, setProcessingRefund] = useState<string | null>(null);
 
   useEffect(() => {
     if (currentView === "students") {
       fetchStudents();
     } else if (currentView === "shopowners") {
       fetchShopOwners();
+    } else if (currentView === "refunds") {
+      fetchRefundOrders();
     }
   }, [currentView, dateRange]);
 
@@ -99,7 +110,7 @@ const DeveloperDashboard = () => {
         setStudents(result.data);
       }
     } catch (error) {
-      console.error("Error fetching students:", error);
+      // Error fetching students
     } finally {
       setLoading(false);
     }
@@ -114,9 +125,57 @@ const DeveloperDashboard = () => {
         setShopOwners(result.data);
       }
     } catch (error) {
-      console.error("Error fetching shop owners:", error);
+      // Error fetching shop owners
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchRefundOrders = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/developer/refund-orders`);
+      const result = await response.json();
+      if (result.success) {
+        setRefundOrders(result.data);
+      }
+    } catch (error) {
+      // Error fetching refund orders
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMarkRefundCompleted = async (orderId: string) => {
+    if (!confirm("Are you sure you want to mark this refund as completed? This will show 'Refunded' status to the student and notify them that their refund has been processed.")) {
+      return;
+    }
+    
+    setProcessingRefund(orderId);
+    try {
+      const response = await fetch(`${API_BASE_URL}/developer/mark-refund-completed`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ order_id: orderId }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        // Refresh refund orders list
+        await fetchRefundOrders();
+        alert("Refund marked as completed! Student will now see 'Amount Refunded' status.");
+      } else {
+        alert(`Error: ${result.error || "Failed to mark refund as completed"}`);
+      }
+    } catch (error: any) {
+      alert(`Error: ${error.message || "Failed to mark refund as completed"}`);
+    } finally {
+      setProcessingRefund(null);
     }
   };
 
@@ -136,7 +195,7 @@ const DeveloperDashboard = () => {
         }
       }
     } catch (error) {
-      console.error("Error blocking user:", error);
+      // Error blocking user
     }
   };
 
@@ -163,13 +222,37 @@ const DeveloperDashboard = () => {
     logout(() => navigate("/auth"));
   };
 
+  // Show loading state while checking auth
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-orange-500"></div>
+      </div>
+    );
+  }
+
+  // Show nothing if not authenticated (will redirect)
+  if (!user || user.role !== "developer") {
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex">
+      {/* Sidebar Overlay for Mobile */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <div
         className={`${
-          sidebarOpen ? "w-64" : "w-0"
-        } bg-gray-900 text-white transition-all duration-300 overflow-hidden fixed h-full z-40`}
+          sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        } ${
+          sidebarOpen ? "w-64" : "w-0 lg:w-64"
+        } bg-gray-900 text-white transition-all duration-300 overflow-hidden fixed lg:static h-full z-50 lg:z-auto`}
       >
         <div className="p-6">
           <div className="flex items-center justify-between mb-8">
@@ -210,6 +293,18 @@ const DeveloperDashboard = () => {
             </button>
 
             <button
+              onClick={() => setCurrentView("refunds")}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+                currentView === "refunds"
+                  ? "bg-orange-600 text-white"
+                  : "text-gray-300 hover:bg-gray-800"
+              }`}
+            >
+              <DollarSign className="h-5 w-5" />
+              <span>Manage Refunds</span>
+            </button>
+
+            <button
               onClick={() => setCurrentView("settings")}
               className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
                 currentView === "settings"
@@ -235,10 +330,10 @@ const DeveloperDashboard = () => {
       </div>
 
       {/* Main Content */}
-      <div className={`flex-1 transition-all duration-300 ${sidebarOpen ? "ml-64" : "ml-0"}`}>
+      <div className="flex-1 w-full lg:w-auto transition-all duration-300">
         {/* Navbar */}
         <nav className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-30">
-          <div className="px-6 py-4 flex items-center justify-between">
+          <div className="px-4 sm:px-6 py-4 flex items-center justify-between">
             <div className="flex items-center space-x-4">
               {!sidebarOpen && (
                 <Button
@@ -249,9 +344,10 @@ const DeveloperDashboard = () => {
                   <Menu className="h-5 w-5" />
                 </Button>
               )}
-              <h1 className="text-2xl font-bold text-gray-900">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
                 {currentView === "students" && "Manage Students"}
                 {currentView === "shopowners" && "Manage ShopOwners"}
+                {currentView === "refunds" && "Manage Refunds"}
                 {currentView === "settings" && "Settings"}
               </h1>
             </div>
@@ -265,7 +361,7 @@ const DeveloperDashboard = () => {
         </nav>
 
         {/* Content Area */}
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           {currentView === "students" && (
             <div className="space-y-6">
               {/* Stats Cards */}
@@ -453,30 +549,31 @@ const DeveloperDashboard = () => {
                               key={student.id}
                               className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
                             >
-                              <td className="py-3 px-4">
+                              <td className="py-3 px-2 sm:px-4">
                                 <div className="flex items-center space-x-2">
-                                  <User className="h-4 w-4 text-gray-400" />
-                                  <span className="font-medium">{student.name}</span>
+                                  <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                                  <span className="font-medium text-xs sm:text-sm truncate max-w-[100px] sm:max-w-none">{student.name}</span>
                                 </div>
                               </td>
-                              <td className="py-3 px-4 text-gray-600">{student.email}</td>
-                              <td className="py-3 px-4">{student.totalOrders}</td>
-                              <td className="py-3 px-4 font-medium">₹{student.totalAmount.toFixed(2)}</td>
-                              <td className="py-3 px-4 text-sm text-gray-500">
+                              <td className="py-3 px-2 sm:px-4 text-gray-600 text-xs sm:text-sm truncate max-w-[120px] sm:max-w-none">{student.email}</td>
+                              <td className="py-3 px-2 sm:px-4 text-xs sm:text-sm">{student.totalOrders}</td>
+                              <td className="py-3 px-2 sm:px-4 font-medium text-xs sm:text-sm hidden md:table-cell">₹{student.totalAmount.toFixed(2)}</td>
+                              <td className="py-3 px-2 sm:px-4 text-xs sm:text-sm text-gray-500 hidden lg:table-cell">
                                 {new Date(student.lastLogin).toLocaleString()}
                               </td>
-                              <td className="py-3 px-4">
+                              <td className="py-3 px-2 sm:px-4">
                                 <Badge
-                                  className={student.is_active === 1 ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}
+                                  className={`text-xs ${student.is_active === 1 ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}
                                 >
                                   {student.is_active === 1 ? "Active" : "Blocked"}
                                 </Badge>
                               </td>
-                              <td className="py-3 px-4">
+                              <td className="py-3 px-2 sm:px-4">
                                 <Button
                                   size="sm"
                                   variant={student.is_active === 1 ? "destructive" : "default"}
                                   onClick={() => handleBlockUser(student.id, student.is_active === 0)}
+                                  className="text-xs sm:text-sm px-2 sm:px-4"
                                 >
                                   {student.is_active === 1 ? (
                                     <>
@@ -503,9 +600,9 @@ const DeveloperDashboard = () => {
           )}
 
           {currentView === "shopowners" && (
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               {/* Stats Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <Card>
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
@@ -637,31 +734,32 @@ const DeveloperDashboard = () => {
                               key={owner.id}
                               className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
                             >
-                              <td className="py-3 px-4">
+                              <td className="py-3 px-2 sm:px-4">
                                 <div className="flex items-center space-x-2">
-                                  <Store className="h-4 w-4 text-gray-400" />
-                                  <span className="font-medium">{owner.name}</span>
+                                  <Store className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                                  <span className="font-medium text-xs sm:text-sm truncate max-w-[100px] sm:max-w-none">{owner.name}</span>
                                 </div>
                               </td>
-                              <td className="py-3 px-4 text-gray-600">{owner.email}</td>
-                              <td className="py-3 px-4">{owner.shopsCount}</td>
-                              <td className="py-3 px-4">{owner.totalOrders}</td>
-                              <td className="py-3 px-4 font-medium">₹{owner.totalRevenue.toFixed(2)}</td>
-                              <td className="py-3 px-4 text-sm text-gray-500">
+                              <td className="py-3 px-2 sm:px-4 text-gray-600 text-xs sm:text-sm truncate max-w-[120px] sm:max-w-none">{owner.email}</td>
+                              <td className="py-3 px-2 sm:px-4 text-xs sm:text-sm">{owner.shopsCount}</td>
+                              <td className="py-3 px-2 sm:px-4 text-xs sm:text-sm">{owner.totalOrders}</td>
+                              <td className="py-3 px-2 sm:px-4 font-medium text-xs sm:text-sm hidden md:table-cell">₹{owner.totalRevenue.toFixed(2)}</td>
+                              <td className="py-3 px-2 sm:px-4 text-xs sm:text-sm text-gray-500 hidden lg:table-cell">
                                 {new Date(owner.lastLogin).toLocaleString()}
                               </td>
-                              <td className="py-3 px-4">
+                              <td className="py-3 px-2 sm:px-4">
                                 <Badge
-                                  className={owner.is_active === 1 ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}
+                                  className={`text-xs ${owner.is_active === 1 ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}
                                 >
                                   {owner.is_active === 1 ? "Active" : "Blocked"}
                                 </Badge>
                               </td>
-                              <td className="py-3 px-4">
+                              <td className="py-3 px-2 sm:px-4">
                                 <Button
                                   size="sm"
                                   variant={owner.is_active === 1 ? "destructive" : "default"}
                                   onClick={() => handleBlockUser(owner.id, owner.is_active === 0)}
+                                  className="text-xs sm:text-sm px-2 sm:px-4"
                                 >
                                   {owner.is_active === 1 ? (
                                     <>
@@ -678,6 +776,172 @@ const DeveloperDashboard = () => {
                               </td>
                             </tr>
                           ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {currentView === "refunds" && (
+            <div className="space-y-4 sm:space-y-6">
+              {/* Stats Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <Card>
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-600">Pending Refunds</p>
+                        <p className="text-2xl font-bold text-gray-900">
+                          {refundOrders.filter((o) => o.payment_status === 'refund_processing').length}
+                        </p>
+                      </div>
+                      <Clock className="h-8 w-8 text-blue-500" />
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-600">Total Refund Amount</p>
+                        <p className="text-2xl font-bold text-gray-900">
+                          ₹{refundOrders.reduce((sum, o) => {
+                            const baseAmount = Number(o.total_amount || 0);
+                            return sum + baseAmount;
+                          }, 0).toFixed(2)}
+                        </p>
+                      </div>
+                      <DollarSign className="h-8 w-8 text-orange-500" />
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-600">Total Orders</p>
+                        <p className="text-2xl font-bold text-gray-900">{refundOrders.length}</p>
+                      </div>
+                      <ShoppingBag className="h-8 w-8 text-green-500" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Refund Orders Table */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <DollarSign className="h-5 w-5 mr-2 text-orange-500" />
+                      Not Collected Orders - Refund Processing
+                    </div>
+                    <Button onClick={fetchRefundOrders} variant="outline" size="sm">
+                      <Clock className="h-4 w-4 mr-2" />
+                      Refresh
+                    </Button>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {loading ? (
+                    <div className="text-center py-8">Loading refund orders...</div>
+                  ) : refundOrders.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">No refund orders found.</div>
+                  ) : (
+                    <div className="overflow-x-auto -mx-4 sm:mx-0">
+                      <table className="w-full min-w-[800px]">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="text-left py-3 px-2 sm:px-4 font-semibold text-gray-700 text-xs sm:text-sm">Order ID</th>
+                            <th className="text-left py-3 px-2 sm:px-4 font-semibold text-gray-700 text-xs sm:text-sm">User</th>
+                            <th className="text-left py-3 px-2 sm:px-4 font-semibold text-gray-700 text-xs sm:text-sm">Shop</th>
+                            <th className="text-left py-3 px-2 sm:px-4 font-semibold text-gray-700 text-xs sm:text-sm">Amount</th>
+                            <th className="text-left py-3 px-2 sm:px-4 font-semibold text-gray-700 text-xs sm:text-sm hidden lg:table-cell">Refund ID</th>
+                            <th className="text-left py-3 px-2 sm:px-4 font-semibold text-gray-700 text-xs sm:text-sm">Status</th>
+                            <th className="text-left py-3 px-2 sm:px-4 font-semibold text-gray-700 text-xs sm:text-sm hidden md:table-cell">Date</th>
+                            <th className="text-left py-3 px-2 sm:px-4 font-semibold text-gray-700 text-xs sm:text-sm">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {refundOrders.map((order) => {
+                            const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
+                            const baseAmount = Number(order.total_amount || 0);
+                            const refundAmount = baseAmount; // After deducting ₹5
+                            const chargedAmount = baseAmount + 5;
+                            
+                            return (
+                              <tr key={order.id} className="border-b hover:bg-gray-50">
+                                <td className="py-3 px-2 sm:px-4">
+                                  <div className="font-medium text-xs sm:text-sm">#{order.order_number || order.id.slice(-8)}</div>
+                                  <div className="text-xs text-gray-500">{order.id.slice(-12)}</div>
+                                </td>
+                                <td className="py-3 px-2 sm:px-4">
+                                  <div className="font-medium text-xs sm:text-sm">{order.user_name || 'Unknown User'}</div>
+                                  <div className="text-xs text-gray-500 truncate max-w-[120px] sm:max-w-none">{order.user_email || ''}</div>
+                                </td>
+                                <td className="py-3 px-2 sm:px-4">
+                                  <div className="font-medium text-xs sm:text-sm">{order.shop_name || 'Unknown Shop'}</div>
+                                </td>
+                                <td className="py-3 px-2 sm:px-4">
+                                  <div className="font-medium text-xs sm:text-sm">₹{refundAmount.toFixed(2)}</div>
+                                  <div className="text-xs text-gray-500">Paid: ₹{chargedAmount.toFixed(2)}</div>
+                                  <div className="text-xs text-red-500">Fee: -₹5.00</div>
+                                </td>
+                                <td className="py-3 px-2 sm:px-4 hidden lg:table-cell">
+                                  <div className="text-xs font-mono text-gray-600 truncate max-w-[150px]">
+                                    {order.refund_id ? order.refund_id.slice(0, 20) + '...' : 'N/A'}
+                                  </div>
+                                </td>
+                                <td className="py-3 px-2 sm:px-4">
+                                  <Badge
+                                    className={`text-xs ${
+                                      order.payment_status === 'refunded'
+                                        ? "bg-green-100 text-green-800"
+                                        : "bg-blue-100 text-blue-800"
+                                    }`}
+                                  >
+                                    {order.payment_status === 'refunded' ? 'Refunded' : 'Not Refunded'}
+                                  </Badge>
+                                </td>
+                                <td className="py-3 px-2 sm:px-4 text-xs sm:text-sm text-gray-500 hidden md:table-cell">
+                                  {new Date(order.created_at).toLocaleDateString()}
+                                  <div className="text-xs">
+                                    {new Date(order.created_at).toLocaleTimeString()}
+                                  </div>
+                                </td>
+                                <td className="py-3 px-2 sm:px-4">
+                                  {order.payment_status === 'refunded' ? (
+                                    <Badge className="bg-green-100 text-green-800">
+                                      Refunded
+                                    </Badge>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      variant="default"
+                                      onClick={() => handleMarkRefundCompleted(order.id)}
+                                      disabled={processingRefund === order.id}
+                                      className="bg-green-600 hover:bg-green-700 text-xs sm:text-sm px-2 sm:px-4"
+                                    >
+                                      {processingRefund === order.id ? (
+                                        <>
+                                          <Clock className="h-4 w-4 mr-1 animate-spin" />
+                                          Processing...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <CheckCircle className="h-4 w-4 mr-1" />
+                                          Show as Refunded
+                                        </>
+                                      )}
+                                    </Button>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>

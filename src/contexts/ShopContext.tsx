@@ -32,14 +32,14 @@ export const ShopProvider = ({ children }: { children: ReactNode }) => {
     }
     setLoading(true);
     try {
-      console.log(`🔄 Fetching shops for user: ${user.name} (${user.role})`);
+      // Fetching shops for user
       let loadedShops: Shop[] = [];
       if (user.role === "shopkeeper") {
         loadedShops = await ApiService.getShopsByOwner(user.id);
-        console.log(`✅ Loaded ${loadedShops.length} shops for shopkeeper`);
+        // Loaded shops for shopkeeper
       } else {
         loadedShops = await ApiService.getShops();
-        console.log(`✅ Loaded ${loadedShops.length} shops for user`);
+        // Loaded shops for user
       }
       // Merge closed state from localStorage if present
       setShops(loadedShops);
@@ -54,7 +54,7 @@ export const ShopProvider = ({ children }: { children: ReactNode }) => {
   // Run mock shop cleanup only once when the app starts
   useEffect(() => {
     const removeMockShops = async () => {
-      console.log("🧹 Checking for mock shops to remove...");
+      // Checking for mock shops to remove
 
       const mockShopNames = [
         "Healthy Bites",
@@ -73,7 +73,7 @@ export const ShopProvider = ({ children }: { children: ReactNode }) => {
           if (mockShopNames.includes(shop.name)) {
             try {
               await ApiService.deleteShop(shop.id);
-              console.log(`🗑️ Deleted mock shop: ${shop.name}`);
+              // Deleted mock shop
               hasChanges = true;
             } catch (error) {
               console.error(`Failed to delete mock shop ${shop.name}:`, error);
@@ -82,9 +82,9 @@ export const ShopProvider = ({ children }: { children: ReactNode }) => {
         }
 
         if (hasChanges) {
-          console.log("✅ Mock shops cleanup completed");
+          // Mock shops cleanup completed
         } else {
-          console.log("✅ No mock shops found to remove");
+          // No mock shops found
         }
       } catch (error) {
         console.error("❌ Error during mock shop cleanup:", error);
@@ -106,7 +106,7 @@ export const ShopProvider = ({ children }: { children: ReactNode }) => {
     const socket = io(SOCKET_URL);
 
     socket.on('shop_tokens_update', (data: { shopId: string; activeTokens: number }) => {
-      console.log('🎫 Received token count update:', data);
+      // Received token count update
       setShops(prevShops => 
         prevShops.map(shop => 
           shop.id === data.shopId 

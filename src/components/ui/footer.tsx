@@ -153,15 +153,15 @@ export const Footer = () => {
                   );
                 }
                 return (
-                  <Link
-                    key={link.name}
-                    to={link.href}
+                <Link
+                  key={link.name}
+                  to={link.href}
                     onClick={link.isBrowseShops ? handleBrowseShopsClick : undefined}
-                    className="block text-gray-300 hover:text-orange-400 hover:translate-x-2 transition-all duration-300 flex items-center group"
-                  >
-                    <ArrowRight className="h-4 w-4 mr-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                    {link.name}
-                  </Link>
+                  className="block text-gray-300 hover:text-orange-400 hover:translate-x-2 transition-all duration-300 flex items-center group"
+                >
+                  <ArrowRight className="h-4 w-4 mr-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  {link.name}
+                </Link>
                 );
               })}
             </div>
@@ -334,35 +334,35 @@ export const Footer = () => {
 
         {/* Bottom section */}
         <div className="mt-12 pt-8 border-t border-gray-700">
-          <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-            <div className="flex flex-wrap items-center space-x-6 text-sm text-gray-400">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4 md:gap-0">
+            <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 sm:gap-6 text-sm text-gray-400">
               <Link
                 to="/privacy"
-                className="hover:text-orange-400 transition-colors duration-300"
+                className="hover:text-orange-400 transition-colors duration-300 whitespace-nowrap"
               >
                 {t("footer.privacyPolicy")}
               </Link>
               <Link
                 to="/terms"
-                className="hover:text-orange-400 transition-colors duration-300"
+                className="hover:text-orange-400 transition-colors duration-300 whitespace-nowrap"
               >
                 {t("footer.termsOfService")}
               </Link>
               <Link
                 to="/cookies"
-                className="hover:text-orange-400 transition-colors duration-300"
+                className="hover:text-orange-400 transition-colors duration-300 whitespace-nowrap"
               >
                 {t("footer.cookiePolicy")}
               </Link>
               <Link
                 to="/accessibility"
-                className="hover:text-orange-400 transition-colors duration-300"
+                className="hover:text-orange-400 transition-colors duration-300 whitespace-nowrap"
               >
                 {t("footer.accessibility")}
               </Link>
             </div>
 
-            <div className="text-gray-400 text-sm">
+            <div className="text-gray-400 text-sm text-center md:text-left whitespace-nowrap">
               {t("footer.copyright")}
             </div>
           </div>

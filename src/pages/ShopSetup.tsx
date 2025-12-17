@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +49,7 @@ const shopSchema = z.object({
 type ShopForm = z.infer<typeof shopSchema>;
 
 const ShopSetup = () => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { forceRefresh } = useShop();
   const { toast } = useToast();
@@ -100,8 +102,8 @@ const ShopSetup = () => {
         // Update existing shop
         await ApiService.updateShop(editingShop.id, data);
         toast({
-          title: "Shop updated!",
-          description: "Your shop has been updated successfully.",
+          title: t("shopSetup.shopUpdated"),
+          description: t("shopSetup.shopUpdatedDesc"),
         });
       } else {
         // Create new shop
@@ -115,16 +117,16 @@ const ShopSetup = () => {
           upiId: data.upiId,
         };
         const newShop = await ApiService.createShop(shopData);
-        console.log("Created new shop:", newShop);
+        // Created new shop
 
         // Verify the shop was actually created and can be retrieved with retries
         let verifyShop = null;
         const maxRetries = 3;
         const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
-        console.log("🔍 Starting shop creation verification for ID:", newShop.id);
+        // Starting shop creation verification
         for (let i = 0; i < maxRetries; i++) {
           verifyShop = await ApiService.getShopById(newShop.id);
-          console.log(`🔄 Verification attempt ${i + 1}:`, verifyShop);
+          // Verification attempt
           if (verifyShop) break;
           await delay(200);
         }
@@ -133,11 +135,11 @@ const ShopSetup = () => {
             "Shop creation verification failed - shop not found after creation",
           );
         }
-        console.log("✅ Shop creation verified:", verifyShop.name);
+        // Shop creation verified
 
         toast({
-          title: "Shop created!",
-          description: `${newShop.name} has been created successfully. You can now add menu items and it will appear in the campus shops list.`,
+          title: t("shopSetup.shopCreated"),
+          description: t("shopSetup.shopCreatedDesc", { name: newShop.name }),
         });
       }
 
@@ -152,25 +154,16 @@ const ShopSetup = () => {
       await loadUserShops();
 
       // Trigger global shop refresh for all components to ensure new shop appears everywhere
-      console.log("Triggering global shop refresh...");
+      // Triggering global shop refresh
       await forceRefresh();
 
-      // Additional verification - log the updated shop count
-      const allShops = await ApiService.getShops();
-      console.log(
-        "✅ Total shops after creation and refresh:",
-        allShops.length,
-      );
-      console.log(
-        "✅ Shop names:",
-        allShops.map((s) => s.name),
-      );
+      // Removed debug console.log to prevent data leakage in production
     } catch (error) {
       console.error("Shop creation/update error:", error);
       toast({
         variant: "destructive",
-        title: "Error",
-        description: `Failed to save shop. Please try again. Error: ${error instanceof Error ? error.message : String(error)}`,
+        title: t("shopSetup.error"),
+        description: t("shopSetup.saveShopError", { error: error instanceof Error ? error.message : String(error) }),
       });
     } finally {
       setIsLoading(false);
@@ -220,15 +213,15 @@ const ShopSetup = () => {
             className="inline-flex items-center text-orange-600 hover:text-orange-700 mb-3 sm:mb-4 text-sm sm:text-base"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
+            {t("shopSetup.backToDashboard")}
           </Link>
 
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2 flex items-center">
             <Store className="h-6 w-6 sm:h-8 sm:w-8 mr-2 sm:mr-3 text-orange-600" />
-            Shop Management
+            {t("shopSetup.shopManagement")}
           </h1>
           <p className="text-sm sm:text-base text-gray-600">
-            Create and manage your food shop on TakeAway
+            {t("shopSetup.createManageShop")}
           </p>
         </div>
 
@@ -241,12 +234,12 @@ const ShopSetup = () => {
                   {editingShop ? (
                     <>
                       <Edit className="h-5 w-5 mr-2 text-orange-600" />
-                      Edit Shop
+                      {t("shopSetup.editShop")}
                     </>
                   ) : (
                     <>
                       <Plus className="h-5 w-5 mr-2 text-orange-600" />
-                      Create New Shop
+                      {t("shopSetup.createNewShop")}
                     </>
                   )}
                 </CardTitle>
@@ -258,10 +251,10 @@ const ShopSetup = () => {
                 >
                   <div className="grid md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <Label htmlFor="name">Shop Name *</Label>
+                      <Label htmlFor="name">{t("shopSetup.shopName")} *</Label>
                       <Input
                         id="name"
-                        placeholder="e.g., Tony's Pizza Corner"
+                        placeholder={t("shopSetup.shopNamePlaceholder")}
                         {...form.register("name")}
                       />
                       {form.formState.errors.name && (
@@ -272,7 +265,7 @@ const ShopSetup = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="category">Category *</Label>
+                      <Label htmlFor="category">{t("shopSetup.category")} *</Label>
                       <Select
                         value={form.watch("category")}
                         onValueChange={(value) =>
@@ -280,7 +273,7 @@ const ShopSetup = () => {
                         }
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Select category" />
+                          <SelectValue placeholder={t("shopSetup.selectCategory")} />
                         </SelectTrigger>
                         <SelectContent>
                           {categories.map((category) => (
@@ -299,10 +292,10 @@ const ShopSetup = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="description">Description *</Label>
+                    <Label htmlFor="description">{t("shopSetup.description")} *</Label>
                     <Textarea
                       id="description"
-                      placeholder="Describe your shop, cuisine style, and what makes it special..."
+                      placeholder={t("shopSetup.descriptionPlaceholder")}
                       rows={4}
                       {...form.register("description")}
                     />
@@ -317,11 +310,11 @@ const ShopSetup = () => {
                     <div className="space-y-2">
                       <Label htmlFor="location" className="flex items-center">
                         <MapPin className="h-4 w-4 mr-1" />
-                        Location *
+                        {t("shopSetup.location")} *
                       </Label>
                       <Input
                         id="location"
-                        placeholder="e.g., Student Center, Floor 2"
+                        placeholder={t("shopSetup.locationPlaceholder")}
                         {...form.register("location")}
                       />
                       {form.formState.errors.location && (
@@ -334,11 +327,11 @@ const ShopSetup = () => {
                     <div className="space-y-2">
                       <Label htmlFor="phone" className="flex items-center">
                         <Phone className="h-4 w-4 mr-1" />
-                        Phone Number
+                        {t("shopSetup.phoneNumber")}
                       </Label>
                       <Input
                         id="phone"
-                        placeholder="+1 (555) 123-4567"
+                        placeholder={t("shopSetup.phonePlaceholder")}
                         {...form.register("phone")}
                       />
                     </div>
@@ -347,25 +340,25 @@ const ShopSetup = () => {
                   <div className="space-y-2">
                     <Label htmlFor="image" className="flex items-center">
                       <ImageIcon className="h-4 w-4 mr-1" />
-                      Shop Image URL (Optional)
+                      {t("shopSetup.shopImageUrl")}
                     </Label>
                     <Input
                       id="image"
-                      placeholder="https://example.com/shop-image.jpg"
+                      placeholder={t("shopSetup.imagePlaceholder")}
                       {...form.register("image")}
                     />
                   </div>
 
                   <div className="mb-4">
                     <Label htmlFor="upiId" className="flex items-center">
-                      <span className="mr-2">UPI ID</span>
+                      <span className="mr-2">{t("shopSetup.upiId")}</span>
                       <span className="text-xs text-gray-500 flex items-center ml-2">
                         <svg className="h-4 w-4 mr-1 text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 11c0-1.104.896-2 2-2s2 .896 2 2-.896 2-2 2-2-.896-2-2zm0 0V7m0 4v4m0 0c0 1.104-.896 2-2 2s-2-.896-2-2 .896-2 2-2 2 .896 2 2 2z" /></svg>
-                        <span>Private (only you can see this)</span>
+                        <span>{t("shopSetup.upiPrivate")}</span>
                       </span>
                     </Label>
-                    <Input id="upiId" placeholder="yourshop@upi" {...form.register("upiId")} />
-                    <p className="text-xs text-gray-500 mt-1">This UPI ID will be used for receiving UPI payments. It will not be shown publicly.</p>
+                    <Input id="upiId" placeholder={t("shopSetup.upiPlaceholder")} {...form.register("upiId")} />
+                    <p className="text-xs text-gray-500 mt-1">{t("shopSetup.upiDescription")}</p>
                   </div>
 
                   <div className="flex space-x-4">
@@ -376,10 +369,10 @@ const ShopSetup = () => {
                     >
                       <Save className="h-4 w-4 mr-2" />
                       {isLoading
-                        ? "Saving..."
+                        ? t("shopSetup.saving")
                         : editingShop
-                          ? "Update Shop"
-                          : "Create Shop"}
+                          ? t("shopSetup.updateShop")
+                          : t("shopSetup.createShop")}
                     </Button>
 
                     {editingShop && (
@@ -404,23 +397,23 @@ const ShopSetup = () => {
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <Store className="h-5 w-5 mr-2 text-orange-600" />
-                  Your Shops ({existingShops.length})
+                  {t("shopSetup.yourShops")} ({existingShops.length})
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 {existingShops.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
                     <Store className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                    <p className="font-medium mb-2">No shops yet</p>
+                    <p className="font-medium mb-2">{t("shopSetup.noShopsYet")}</p>
                     <p className="text-sm">
-                      Create your first shop to get started
+                      {t("shopSetup.createFirstShop")}
                     </p>
                   </div>
                 ) : (
                   <>
                     <div className="mb-6">
                       <Label htmlFor="shop-select" className="text-base font-medium">
-                        Select Shop:
+                        {t("shopSetup.selectShop")}
                       </Label>
                     <Select
                       value={selectedShopId || ""}
@@ -429,7 +422,7 @@ const ShopSetup = () => {
                       }}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a shop" />
+                        <SelectValue placeholder={t("shopSetup.selectShopPlaceholder")} />
                       </SelectTrigger>
                       <SelectContent>
                         {existingShops.map((shop) => (
@@ -454,18 +447,18 @@ const ShopSetup = () => {
                             <p className="text-xs text-gray-500 mt-2 line-clamp-2">
                               {existingShops.find((s) => s.id === selectedShopId)?.description}
                             </p>
-                            <div className="flex items-center mt-3 text-xs text-gray-500">
+                              <div className="flex items-center mt-3 text-xs text-gray-500">
                               <Clock className="h-3 w-3 mr-1" />
-                              {existingShops.find((s) => s.id === selectedShopId)?.estimatedWaitTime} min wait
+                              {existingShops.find((s) => s.id === selectedShopId)?.estimatedWaitTime} {t("shopSetup.minWait")}
                               <span className="mx-2">•</span>
-                              {existingShops.find((s) => s.id === selectedShopId)?.activeTokens} active orders
+                              {existingShops.find((s) => s.id === selectedShopId)?.activeTokens} {t("shopSetup.activeOrders")}
                             </div>
 
                             {/* Display menu items for selected shop */}
                             <div className="mt-4">
-                              <h4 className="font-semibold mb-2">Menu Items ({menuItems.length})</h4>
+                              <h4 className="font-semibold mb-2">{t("shopSetup.menuItems")} ({menuItems.length})</h4>
                               {menuItems.length === 0 ? (
-                                <p className="text-sm text-gray-500">No menu items yet</p>
+                                <p className="text-sm text-gray-500">{t("shopSetup.noMenuItems")}</p>
                               ) : (
                                 <ul className="list-disc list-inside text-sm text-gray-700 max-h-40 overflow-y-auto">
                                   {menuItems.map((item) => (
@@ -494,26 +487,26 @@ const ShopSetup = () => {
                             variant="destructive"
                             className="ml-2"
                             onClick={async () => {
-                              const confirmed = window.confirm("Are you sure you want to delete this shop?");
+                              const confirmed = window.confirm(t("shopSetup.deleteConfirm"));
                               if (!confirmed) return;
                               try {
                                 const shop = existingShops.find((s) => s.id === selectedShopId);
                                 if (!shop) return;
                                 const success = await ApiService.deleteShop(shop.id);
                                 if (success) {
-                                  alert("Shop deleted successfully.");
+                                  alert(t("shopSetup.shopDeleted"));
                                   await loadUserShops();
                                   await forceRefresh();
                                 } else {
-                                  alert("Failed to delete shop.");
+                                  alert(t("shopSetup.deleteFailed"));
                                 }
                               } catch (error) {
                                 console.error("Error deleting shop:", error);
-                                alert("An error occurred while deleting the shop.");
+                                alert(t("shopSetup.deleteError"));
                               }
                             }}
                           >
-                            Delete
+                            {t("shopSetup.deleteShop")}
                           </Button>
                         </div>
                       </div>

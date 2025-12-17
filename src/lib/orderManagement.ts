@@ -43,12 +43,7 @@ export class OrderManagement {
     totalAmount: number;
     notes?: string;
   }): Promise<any> {
-    console.log("📝 Submitting order for approval (localStorage mode):", {
-      shopId: orderData.shopId,
-      userId: orderData.userId,
-      items: orderData.items.length,
-      totalAmount: orderData.totalAmount,
-    });
+    // Submitting order for approval
 
     // Use localStorage directly
     const { MockDatabase } = await import("./database");
@@ -66,7 +61,7 @@ export class OrderManagement {
       notes: orderData.notes,
     }) as any;
 
-    console.log("✅ Order submitted successfully:", (order as any).tokenNumber);
+    // Order submitted successfully
     return order;
   }
 
@@ -86,11 +81,7 @@ export class OrderManagement {
       isAvailable: boolean;
     }>;
   }): Promise<any> {
-    console.log("⚖️ Processing order approval (localStorage mode):", {
-      orderId: approval.orderId,
-      status: approval.status,
-      estimatedTime: approval.estimatedPreparationTime,
-    });
+    // Processing order approval
 
     // Use localStorage directly
     const { MockDatabase } = await import("./database");
@@ -113,7 +104,7 @@ export class OrderManagement {
       throw new Error("Order not found");
     }
 
-    console.log(`✅ Order ${approval.status} successfully:`, (order as any).tokenNumber);
+    // Order processed successfully
     return order;
   }
 
@@ -139,10 +130,7 @@ export class OrderManagement {
     status: OrderStatus,
   ): Promise<any[]> {
     try {
-      console.log(
-        `📊 Loading ${status} orders for shop (localStorage mode):`,
-        shopId,
-      );
+      // Loading orders for shop
 
       // Use localStorage directly
       const { MockDatabase } = await import("./database");
@@ -151,9 +139,7 @@ export class OrderManagement {
         status,
       });
 
-      console.log(
-        `✅ Found ${orders.length} ${status} orders from localStorage`,
-      );
+      // Found orders from localStorage
       return orders.sort(
         (a: any, b: any) =>
           new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
@@ -169,18 +155,18 @@ export class OrderManagement {
 
   static async getOrderById(orderId: string): Promise<any | null> {
     try {
-      console.log("🔍 Loading order by ID (localStorage mode):", orderId);
+      // Loading order by ID
 
       // Use localStorage directly
       const { MockDatabase } = await import("./database");
       const order = await MockDatabase.findById("orders", orderId);
 
       if (!order) {
-        console.log("⚠️ Order not found:", orderId);
+        // Order not found
         return null;
       }
 
-      console.log("✅ Order loaded successfully:", order.tokenNumber);
+      // Order loaded successfully
       return order;
     } catch (error) {
       console.error("❌ Failed to load order from localStorage:", error);
@@ -199,10 +185,7 @@ export class OrderManagement {
     metadata?: any,
   ): Promise<any> {
     try {
-      console.log("🔄 Updating order status (localStorage mode):", {
-        orderId,
-        status,
-      });
+      // Updating order status
 
       // Use localStorage directly
       const { MockDatabase } = await import("./database");
@@ -222,7 +205,7 @@ export class OrderManagement {
         throw new Error("Order not found");
       }
 
-      console.log("✅ Order status updated successfully in localStorage");
+      // Order status updated successfully
       return order;
     } catch (error) {
       console.error("❌ Failed to update order status in localStorage:", error);
@@ -236,14 +219,14 @@ export class OrderManagement {
 
   static async getShopOwnerId(shopId: string): Promise<string> {
     try {
-      console.log("🔍 Getting shop owner ID (localStorage mode):", shopId);
+      // Getting shop owner ID
 
       // Use localStorage directly
       const { MockDatabase } = await import("./database");
     const shop = await MockDatabase.findById("shops", shopId) as any;
 
     const ownerId = shop?.ownerId || "";
-    console.log("✅ Shop owner ID retrieved:", ownerId);
+    // Shop owner ID retrieved
     return ownerId;
   } catch (error) {
     console.error("❌ Failed to get shop owner ID from localStorage:", error);
@@ -262,7 +245,7 @@ export class OrderManagement {
 
   static setupRealTimeUpdates(shopId: string, callback: (order: any) => void) {
     // TODO: Implement WebSocket connection for real-time updates
-    console.log("📡 Setting up real-time updates for shop:", shopId);
+    // Setting up real-time updates for shop
 
     // For now, use polling as fallback
     const interval = setInterval(async () => {
@@ -279,7 +262,7 @@ export class OrderManagement {
 
     return () => {
       clearInterval(interval);
-      console.log("🔌 Real-time updates disconnected");
+      // Real-time updates disconnected
     };
   }
 
@@ -295,7 +278,7 @@ export class OrderManagement {
     },
   ) {
     try {
-      console.log("📈 Loading order analytics for shop:", shopId);
+      // Loading order analytics for shop
 
       const orders = await this.getOrdersByShop(shopId);
 
@@ -313,7 +296,7 @@ export class OrderManagement {
         return acc;
       }, {});
 
-      console.log("✅ Analytics calculated successfully");
+      // Analytics calculated successfully
 
       return {
         totalOrders,
@@ -336,18 +319,13 @@ export class OrderManagement {
 
   static async getOrdersByShop(shopId: string): Promise<any[]> {
     try {
-      console.log(
-        "📋 Loading all orders for shop (localStorage mode):",
-        shopId,
-      );
+      // Loading all orders for shop
 
       // Use localStorage directly
       const { MockDatabase } = await import("./database");
       const orders = await MockDatabase.findMany("orders", { shopId });
 
-      console.log(
-        `✅ Found ${orders.length} orders for shop from localStorage`,
-      );
+      // Found orders for shop
       return orders.sort(
         (a: any, b: any) =>
           new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),

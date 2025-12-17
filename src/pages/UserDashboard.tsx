@@ -73,7 +73,7 @@ const UserDashboard = () => {
 
       // WebSocket: Listen for token count updates
       newSocket.on("shop_tokens_update", (data: { shopId: string; activeTokens: number }) => {
-        console.log('🎫 Received token count update:', data);
+        // Received token count update
         refreshShops(); // Refresh shops to get updated token counts
       });
     }
@@ -117,9 +117,6 @@ const UserDashboard = () => {
     }
   }, [shops]);
 
-  console.log("All shops from context:", shops);
-  console.log("User:", user);
-  console.log("Loading state:", loading);
   
   const filteredShops = shops
     .filter((shop) => {
@@ -137,17 +134,8 @@ const UserDashboard = () => {
         selectedCategory === "all" || shop.category === selectedCategory;
       return matchesSearch && matchesCategory;
     });
-  console.log("Filtered shops:", filteredShops);
 
-  // Debug effect to track shops changes
-  useEffect(() => {
-    console.log("🔄 Shops changed:", {
-      totalShops: shops.length,
-      user: user?.name,
-      userRole: user?.role,
-      loading
-    });
-  }, [shops, user, loading]);
+  // Removed debug console.log to prevent data leakage in production
 
   const categories = [
     "all",
@@ -323,37 +311,37 @@ const UserDashboard = () => {
                   <CardContent className="pt-0 p-4 sm:p-6 relative">
                     <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-amber-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-b-lg pointer-events-none"></div>
                     <div className="relative z-10">
-                      <div className="flex items-center text-sm text-gray-600 mb-2">
-                        <Clock className="mr-1" size={14} />
+                    <div className="flex items-center text-sm text-gray-600 mb-2">
+                      <Clock className="mr-1" size={14} />
                         <span>{shop.estimatedWaitTime} {t("common.minWait")}</span>
-                      </div>
-                      {/* Token Section */}
-                      <div className="flex items-center gap-2 mb-2">
+                    </div>
+                    {/* Token Section */}
+                    <div className="flex items-center gap-2 mb-2">
                         <span className="text-sm font-medium">Active Tokens:</span>
-                        <span className="bg-orange-100 text-orange-700 px-2 py-1 rounded">{typeof shop.activeTokens === "number" ? shop.activeTokens : 0}</span>
+                      <span className="bg-orange-100 text-orange-700 px-2 py-1 rounded">{typeof shop.activeTokens === "number" ? shop.activeTokens : 0}</span>
+                    </div>
+                    <div className="space-y-3">
+                      {/* Shop rating section in shop card */}
+                      <div className="flex items-center text-gray-600">
+                        <Star className="h-4 w-4 mr-1 text-yellow-500 group-hover:animate-bounce" />
+                        {shopRatings[shop.id]?.avg ? shopRatings[shop.id].avg.toFixed(1) : '—'}
                       </div>
-                      <div className="space-y-3">
-                        {/* Shop rating section in shop card */}
-                        <div className="flex items-center text-gray-600">
-                          <Star className="h-4 w-4 mr-1 text-yellow-500 group-hover:animate-bounce" />
-                          {shopRatings[shop.id]?.avg ? shopRatings[shop.id].avg.toFixed(1) : '—'}
-                        </div>
-                        <Button
-                          className={`w-full transform group-hover:scale-105 transition-all duration-300 ${
-                            shop.closed
-                              ? "bg-gray-300 text-gray-400 cursor-not-allowed opacity-60"
-                              : "bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 group-hover:shadow-lg group-hover:shadow-orange-500/50"
-                          }`}
-                          disabled={shop.closed || shop.crowdLevel === "high"}
-                          onClick={() => handleViewMenu(shop.id)}
-                        >
-                          <ShoppingCart className="h-4 w-4 mr-2 group-hover:animate-bounce" />
-                          {shop.closed
-                            ? "Unavailable"
-                            : shop.crowdLevel === "high"
-                            ? "Very Busy"
+                      <Button
+                        className={`w-full transform group-hover:scale-105 transition-all duration-300 ${
+                          shop.closed
+                            ? "bg-gray-300 text-gray-400 cursor-not-allowed opacity-60"
+                            : "bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 group-hover:shadow-lg group-hover:shadow-orange-500/50"
+                        }`}
+                        disabled={shop.closed || shop.crowdLevel === "high"}
+                        onClick={() => handleViewMenu(shop.id)}
+                      >
+                        <ShoppingCart className="h-4 w-4 mr-2 group-hover:animate-bounce" />
+                        {shop.closed
+                          ? "Unavailable"
+                          : shop.crowdLevel === "high"
+                          ? "Very Busy"
                             : t("common.viewMenu")}
-                        </Button>
+                      </Button>
                       </div>
                     </div>
                   </CardContent>

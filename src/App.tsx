@@ -26,6 +26,10 @@ import ShopMenu from "./pages/ShopMenu";
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
 import HowItWorks from "./pages/HowItWorks";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
+import CookiePolicy from "./pages/CookiePolicy";
+import Accessibility from "./pages/Accessibility";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -101,6 +105,10 @@ const AppContent = () => {
         <Route path="/profile" element={<Profile />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/how-it-works" element={<HowItWorks />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/terms" element={<TermsOfService />} />
+        <Route path="/cookies" element={<CookiePolicy />} />
+        <Route path="/accessibility" element={<Accessibility />} />
         {/* Catch-all route - must be last */}
         <Route path="*" element={<NotFound />} />
       </Routes>

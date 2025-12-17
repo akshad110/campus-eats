@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { X, Ticket, Clock, Users, Calendar } from "lucide-react";
 import { Order } from "@/lib/types";
 import { ApiService } from "@/lib/api";
+import { formatTimeIST, calculatePickupTimeIST } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 interface PaymentApprovedCardProps {
   order: Order;
@@ -10,6 +12,7 @@ interface PaymentApprovedCardProps {
 }
 
 export const PaymentApprovedCard = ({ order, isOpen, onClose }: PaymentApprovedCardProps) => {
+  const { t } = useTranslation();
   const [activeTokens, setActiveTokens] = useState<number>(0);
   const [loading, setLoading] = useState(false);
 
@@ -33,11 +36,15 @@ export const PaymentApprovedCard = ({ order, isOpen, onClose }: PaymentApprovedC
     }
   };
 
+  // Use preparation_time from database (set by shopkeeper when approving order)
   const preparationTime = order.preparationTime || 15; // Default to 15 minutes if not set
+  
+  // Always use estimated_pickup_time from database if available (calculated when order was approved)
+  // Only calculate as fallback if not stored
   const estimatedPickupTime = order.estimatedPickupTime
-    ? new Date(order.estimatedPickupTime).toLocaleTimeString()
+    ? formatTimeIST(order.estimatedPickupTime)
     : order.updatedAt && preparationTime
-    ? new Date(new Date(order.updatedAt).getTime() + preparationTime * 60000).toLocaleTimeString()
+    ? calculatePickupTimeIST(order.updatedAt, preparationTime)
     : 'N/A';
 
   if (!isOpen) return null;
@@ -79,8 +86,8 @@ export const PaymentApprovedCard = ({ order, isOpen, onClose }: PaymentApprovedC
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 mb-4 shadow-lg animate-pulse">
               <Ticket className="h-8 w-8 text-white" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Payment Approved!</h2>
-            <p className="text-gray-600">Your order is now being prepared</p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">{t("payment.paymentApproved")}</h2>
+            <p className="text-gray-600">{t("payment.orderBeingPrepared")}</p>
           </div>
 
           {/* Content */}
@@ -92,7 +99,7 @@ export const PaymentApprovedCard = ({ order, isOpen, onClose }: PaymentApprovedC
                   <Ticket className="h-5 w-5 text-white" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm text-gray-600 mb-1">Your Token</p>
+                  <p className="text-sm text-gray-600 mb-1">{t("payment.yourToken")}</p>
                   <p className="text-2xl font-bold text-orange-600">
                     #{order.tokenNumber || 'N/A'}
                   </p>
@@ -107,7 +114,7 @@ export const PaymentApprovedCard = ({ order, isOpen, onClose }: PaymentApprovedC
                   <Users className="h-5 w-5 text-white" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm text-gray-600 mb-1">Current Ongoing Tokens</p>
+                  <p className="text-sm text-gray-600 mb-1">{t("payment.currentOngoingTokens")}</p>
                   {loading ? (
                     <p className="text-xl font-bold text-blue-600">Loading...</p>
                   ) : (
@@ -124,7 +131,7 @@ export const PaymentApprovedCard = ({ order, isOpen, onClose }: PaymentApprovedC
                   <Clock className="h-5 w-5 text-white" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm text-gray-600 mb-1">Time to Prepare</p>
+                  <p className="text-sm text-gray-600 mb-1">{t("payment.timeToPrepare")}</p>
                   <p className="text-xl font-bold text-purple-600">
                     {preparationTime} minutes
                   </p>
@@ -139,7 +146,7 @@ export const PaymentApprovedCard = ({ order, isOpen, onClose }: PaymentApprovedC
                   <Calendar className="h-5 w-5 text-white" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm text-gray-600 mb-1">Estimated Pickup Time</p>
+                  <p className="text-sm text-gray-600 mb-1">{t("payment.estimatedPickupTime")}</p>
                   <p className="text-xl font-bold text-green-600">
                     {estimatedPickupTime}
                   </p>
@@ -151,7 +158,7 @@ export const PaymentApprovedCard = ({ order, isOpen, onClose }: PaymentApprovedC
           {/* Footer */}
           <div className="mt-6 pt-4 border-t border-gray-200">
             <p className="text-center text-sm text-gray-500">
-              We'll notify you when your order is ready!
+              {t("payment.notifyWhenReady")}
             </p>
           </div>
         </div>

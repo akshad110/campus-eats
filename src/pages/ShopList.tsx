@@ -28,7 +28,7 @@ const ShopList = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {shops.filter(shop => shop.closed === false).map((shop) => {
-            console.log("Shop data in ShopList:", shop);
+            // Shop data in ShopList
             return (
               <Card key={shop.id} className="shadow-md">
                 <CardHeader>
